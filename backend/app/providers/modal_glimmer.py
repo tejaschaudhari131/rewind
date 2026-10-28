@@ -127,7 +127,7 @@ class ModalGlimmerClient:
                     "json_schema": {"name": "glimmer_output", "schema": clean_schema},
                 },
             }
-            async with httpx.AsyncClient(timeout=settings.http_timeout_s) as modal_client:
+            async with httpx.AsyncClient(timeout=settings.http_timeout_s, trust_env=False) as modal_client:
                 resp = await modal_client.post(
                     self.modal_endpoint, headers=headers, json=req_body
                 )

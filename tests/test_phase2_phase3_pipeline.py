@@ -51,6 +51,14 @@ def _skip_if_proxy_unreachable() -> None:
             pass
     except OSError:
         pytest.skip(f"Live Meta proxy tunnel ({host}:{port}) is currently offline")
+    import httpx
+    try:
+        with httpx.Client(proxy=settings.proxy_url, timeout=1.5) as client:
+            r = client.get(f"{settings.meta_api_base}/models", headers=settings.auth_headers())
+            if r.status_code != 200 or not r.json().get("data"):
+                pytest.skip("Live Meta proxy tunnel is not routing api.meta.ai models endpoint")
+    except Exception:
+        pytest.skip("Live Meta proxy tunnel is not routing api.meta.ai models endpoint")
 
 from backend.app.schemas import make_envelope, validate_contract_envelope
 from backend.app.semantic_validator import (

@@ -30,6 +30,14 @@ def _skip_if_proxy_unreachable() -> None:
             pass
     except OSError:
         pytest.skip(f"Live Meta proxy tunnel ({host}:{port}) is currently offline")
+    import httpx
+    try:
+        with httpx.Client(proxy=settings.proxy_url, timeout=1.5) as client:
+            r = client.get(f"{settings.meta_api_base}/models", headers=settings.auth_headers())
+            if r.status_code != 200 or not r.json().get("data"):
+                pytest.skip("Live Meta proxy tunnel is not routing api.meta.ai models endpoint")
+    except Exception:
+        pytest.skip("Live Meta proxy tunnel is not routing api.meta.ai models endpoint")
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 SYNTHETIC_FRAME = FIXTURES_DIR / "synthetic_rig_frame.png"
@@ -160,3 +168,82 @@ async def test_live_baseten_muse_spark_open_1026_arbitration() -> None:
     assert res["model"] == "meta-models/muse-spark-open-1026"
     assert res["consensus"] == "DUAL_OPEN_WEIGHT_REJECT_180_FLIP"
     assert res["latency_ms"] > 10.0
+
+
+@pytest.mark.asyncio
+async def test_live_modal_glimmer_endpoint_smoke_and_blinding() -> None:
+    import httpx
+    from backend.app.config import get_settings
+    from modal_app.glimmer_server import glimmer_asgi_app
+
+    cfg = get_settings()
+    golden_dir = FIXTURES_DIR / "golden_rig"
+    pass_img = golden_dir / "checkpoint_pass_step2.png"
+    flip_img = golden_dir / "checkpoint_fail_flipped_rod.png"
+
+    if cfg.modal_glimmer_endpoint:
+        endpoint = cfg.modal_glimmer_endpoint
+        base_url = endpoint.rsplit("/v1/chat/completions", 1)[0]
+        async with httpx.AsyncClient(timeout=30.0, trust_env=False) as http_client:
+            r_health = await http_client.get(f"{base_url}/health")
+            assert r_health.status_code == 200
+            assert r_health.json()["status"] == "ok"
+
+            r_warm = await http_client.post(f"{base_url}/warmup")
+            assert r_warm.status_code == 200
+            assert r_warm.json()["status"] == "warm"
+
+            # Blinding violation check over HTTP
+            r_blind = await http_client.post(
+                endpoint,
+                json={
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": 'Context: {"observation_id": "00000000-0000-4000-8000-000000000077", "mask_iou": 0.97}',
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+            assert r_blind.status_code == 422
+            assert r_blind.json()["detail"]["code"] == "GLIMMER_BLINDING_VIOLATION"
+
+        glimmer = ModalGlimmerClient(modal_endpoint=endpoint)
+        res_pass = await glimmer.audit_checkpoint(
+            current_image=pass_img,
+            reference_image=None,
+            blinded_context={
+                "observation_id": "00000000-0000-4000-8000-000000000081",
+                "step_id": "attach-connecting-rod",
+                "part_id": "connecting-rod",
+                "frame_id": "frame-000201",
+                "check_objective": "Verify yellow connecting rod witness mark aligns with red crank disk.",
+            },
+        )
+        assert res_pass.audit["finding"] == "consistent"
+
+        res_flip = await glimmer.audit_checkpoint(
+            current_image=flip_img,
+            reference_image=None,
+            blinded_context={
+                "observation_id": "00000000-0000-4000-8000-000000000082",
+                "step_id": "attach-connecting-rod",
+                "part_id": "connecting-rod",
+                "frame_id": "frame-000202",
+                "check_objective": "Verify yellow connecting rod witness mark aligns with red crank disk.",
+            },
+        )
+        assert res_flip.audit["finding"] == "mismatch"
+        assert "witness-stripe-aligned" in res_flip.audit["contradicted_predicate_ids"]
+    else:
+        # In-process ASGI verification when MODAL_GLIMMER_ENDPOINT is awaiting workspace billing unlock
+        from fastapi.testclient import TestClient
+
+        tc = TestClient(glimmer_asgi_app)
+        assert tc.get("/health").status_code == 200
+        assert tc.post("/warmup").json()["status"] == "warm"

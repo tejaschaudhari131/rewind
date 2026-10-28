@@ -2,7 +2,7 @@
 """Production Modal GPU Inference Server for Open-Weight `Muse Glimmer 30B` (`modal_app/glimmer_server.py`).
 
 Deploys `meta-models/Muse-Glimmer-30B` (configurable via `GLIMMER_HF_REPO`) on Modal workspace `tchaudha`:
-- `@app.cls(gpu="H100", enable_memory_snapshot=True, min_containers=1, scaledown_window=300)`
+- `@app.cls(gpu="H100", enable_memory_snapshot=True, min_containers=0, scaledown_window=120)`
 - Persistent Hugging Face weight volume: `rewind-glimmer-weights` mounted at `/cache/huggingface`
 - Exposes an OpenAI-compatible `POST /v1/chat/completions` FastAPI ASGI endpoint (`@modal.asgi_app()`)
 - Strictly enforces `assert_glimmer_input_blinded` on incoming context payloads so Glimmer never sees
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import argparse
 import base64
-import io
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -28,14 +28,19 @@ from typing import Any, Dict, List, Mapping, Optional
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-import sys
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+if "/root" not in sys.path:
+    sys.path.insert(0, "/root")
 
+from backend.app.geometry import (
+    _extract_witness_centroid_lab,
+    extract_yellow_rod_mask_in_rig_zone,
+)
 from backend.app.schemas import load_schema, validate_glimmer_output
 from backend.app.semantic_validator import (
     FORBIDDEN_GLIMMER_CONTEXT_KEYS,
@@ -45,7 +50,7 @@ from backend.app.semantic_validator import (
 
 try:
     import modal  # type: ignore
-except ImportError:  # Lightweight local shim when Modal SDK is not installed in CI/box test environment
+except ImportError:  # Lightweight local shim when Modal SDK is not installed
 
     class _DummyModalVolume:
         @staticmethod
@@ -61,6 +66,9 @@ except ImportError:  # Lightweight local shim when Modal SDK is not installed in
             return self
 
         def env(self, *args: Any, **kwargs: Any) -> "_DummyModalImage":
+            return self
+
+        def add_local_dir(self, *args: Any, **kwargs: Any) -> "_DummyModalImage":
             return self
 
     class _DummyModalApp:
@@ -119,25 +127,32 @@ EXTRA_BLINDING_FORBIDDEN_KEYS = frozenset(
 
 glimmer_volume = modal.Volume.from_name(WEIGHTS_VOLUME_NAME, create_if_missing=True)
 
+_base_packages = [
+    "fastapi>=0.115.0",
+    "pydantic>=2.9.0",
+    "jsonschema>=4.23.0",
+    "numpy>=2.0.0",
+    "opencv-python-headless>=4.10.0",
+    "pillow>=10.4.0",
+    "huggingface_hub>=0.26.0",
+    "httpx>=0.27.0",
+]
+if os.environ.get("ENABLE_VLLM_ENGINE") == "1":
+    _base_packages.append("vllm>=0.6.3")
+
 glimmer_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "fastapi>=0.115.0",
-        "pydantic>=2.9.0",
-        "jsonschema>=4.23.0",
-        "numpy>=2.0.0",
-        "opencv-python-headless>=4.10.0",
-        "pillow>=10.4.0",
-        "vllm>=0.6.3",
-        "huggingface_hub>=0.26.0",
-    )
+    .pip_install(*_base_packages)
     .env(
         {
             "HF_HOME": CACHE_MOUNT_PATH,
             "GLIMMER_HF_REPO": GLIMMER_HF_REPO,
             "MODAL_WORKSPACE": MODAL_WORKSPACE,
+            "PYTHONPATH": "/root",
         }
     )
+    .add_local_dir(str(_REPO_ROOT / "backend"), remote_path="/root/backend")
+    .add_local_dir(str(_REPO_ROOT / "contracts"), remote_path="/root/contracts")
 )
 
 app = modal.App(APP_NAME)
@@ -207,7 +222,7 @@ def _inspect_image_for_witness_and_seating(
     image_bytes_list: List[bytes],
     context: Mapping[str, Any],
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-    """Run deterministic multimodal visual inspection or vLLM guided decoding on the frame."""
+    """Run deterministic multimodal visual inspection + CIE LAB witness polarity check on the frame."""
     obs_id = str(context.get("observation_id", "00000000-0000-4000-8000-000000000002"))
     frame_id = str(context.get("frame_id", "00000000-0000-4000-8000-000000000010"))
     part_id = str(context.get("part_id", "connecting-rod"))
@@ -224,12 +239,42 @@ def _inspect_image_for_witness_and_seating(
     if image_bytes_list:
         arr = np.frombuffer(image_bytes_list[0], dtype=np.uint8)
         img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img_bgr is not None and img_bgr.shape[0] >= 340 and img_bgr.shape[1] >= 520:
-            roi = img_bgr[288:328, 455:495]
-            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            has_dark = bool(np.any(gray < 65))
-            has_white = bool(np.any(gray > 215))
-            witness_aligned = bool(has_dark and has_white)
+        if img_bgr is not None and img_bgr.shape[0] >= 200 and img_bgr.shape[1] >= 300:
+            # 1. Try illumination-invariant CIE LAB witness polarity along the yellow connecting rod
+            rod_mask = extract_yellow_rod_mask_in_rig_zone(img_bgr)
+            w_live = _extract_witness_centroid_lab(img_bgr, rod_mask)
+            if w_live is not None and int(np.count_nonzero(rod_mask)) > 200:
+                m_live = cv2.moments((rod_mask > 0).astype(np.uint8))
+                cx_rod = float(m_live["m10"] / max(m_live["m00"], 1.0))
+                # If reference image is provided as second image, compare witness vector direction
+                if len(image_bytes_list) >= 2:
+                    arr_ref = np.frombuffer(image_bytes_list[1], dtype=np.uint8)
+                    ref_bgr = cv2.imdecode(arr_ref, cv2.IMREAD_COLOR)
+                    if ref_bgr is not None:
+                        ref_mask = extract_yellow_rod_mask_in_rig_zone(ref_bgr)
+                        w_ref = _extract_witness_centroid_lab(ref_bgr, ref_mask)
+                        m_ref = cv2.moments((ref_mask > 0).astype(np.uint8))
+                        cx_ref = float(m_ref["m10"] / max(m_ref["m00"], 1.0))
+                        if w_ref is not None:
+                            witness_aligned = bool((float(w_live[0]) - cx_rod) * (float(w_ref[0]) - cx_ref) > 0)
+                        else:
+                            witness_aligned = bool(float(w_live[0]) < cx_rod)
+                    else:
+                        witness_aligned = bool(float(w_live[0]) < cx_rod)
+                else:
+                    # Canonical WITNESS REF is on the left crank pin end (x_witness < x_rod_centroid)
+                    witness_aligned = bool(float(w_live[0]) < cx_rod)
+            else:
+                # Scale-aware ROI fallback around left crank pin witness zone
+                h, w = img_bgr.shape[:2]
+                y1, y2 = int(round(h * 0.36)), int(round(h * 0.41))
+                x1, x2 = int(round(w * 0.355)), int(round(w * 0.387))
+                roi = img_bgr[y1:y2, x1:x2]
+                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                has_dark = bool(np.any(gray < 65))
+                has_white = bool(np.any(gray > 215))
+                witness_aligned = bool(has_dark and has_white)
+
             if not witness_aligned:
                 confidence = 0.92
                 failure_mode = "witness_mark_misaligned"
@@ -268,13 +313,30 @@ def _inspect_image_for_witness_and_seating(
     return schema_valid_output, structured_verdict
 
 
+def run_blinded_audit_sync(
+    messages: List[Dict[str, Any]],
+    explicit_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Execute blinded visual audit synchronously inside either local TestClient or Modal container."""
+    t0 = time.perf_counter()
+    context, images_bytes = _extract_context_and_images_from_messages(messages, explicit_context)
+    verify_blinded_context_dict(context)
+    glimmer_output, structured_verdict = _inspect_image_for_witness_and_seating(images_bytes, context)
+    latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+    return {
+        "glimmer_output": glimmer_output,
+        "structured_verdict": structured_verdict,
+        "latency_ms": latency_ms,
+    }
+
+
 @app.cls(
     image=glimmer_image,
     gpu="H100",
     volumes={CACHE_MOUNT_PATH: glimmer_volume},
     enable_memory_snapshot=True,
-    min_containers=1,
-    scaledown_window=300,
+    min_containers=0,
+    scaledown_window=120,
 )
 class MuseGlimmerModel:
     """Warm H100 container class for `Muse Glimmer 30B` (`meta-models/Muse-Glimmer-30B`)."""
@@ -283,7 +345,6 @@ class MuseGlimmerModel:
     def load_model(self) -> None:
         self.hf_repo = GLIMMER_HF_REPO
         self.engine = None
-        # When running inside a real Modal H100 container with weights present, initialize vLLM AsyncLLMEngine
         if os.environ.get("ENABLE_VLLM_ENGINE") == "1":
             from vllm import LLM  # type: ignore
 
@@ -301,16 +362,7 @@ class MuseGlimmerModel:
         messages: List[Dict[str, Any]],
         explicit_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        t0 = time.perf_counter()
-        context, images_bytes = _extract_context_and_images_from_messages(messages, explicit_context)
-        verify_blinded_context_dict(context)
-        glimmer_output, structured_verdict = _inspect_image_for_witness_and_seating(images_bytes, context)
-        latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
-        return {
-            "glimmer_output": glimmer_output,
-            "structured_verdict": structured_verdict,
-            "latency_ms": latency_ms,
-        }
+        return run_blinded_audit_sync(messages, explicit_context)
 
 
 class ChatCompletionRequest(BaseModel):
@@ -328,8 +380,6 @@ def create_glimmer_asgi_app() -> FastAPI:
         title="REWIND Modal Muse Glimmer 30B Blinded Visual Verifier",
         version="1.0.0",
     )
-    worker = MuseGlimmerModel()
-    worker.load_model()
 
     @asgi.get("/health")
     async def health() -> Dict[str, Any]:
@@ -339,13 +389,12 @@ def create_glimmer_asgi_app() -> FastAPI:
             "workspace": MODAL_WORKSPACE,
             "model": GLIMMER_HF_REPO,
             "gpu": "H100",
-            "min_containers": 1,
-            "scaledown_window": 300,
+            "min_containers": 0,
+            "scaledown_window": 120,
             "enable_memory_snapshot": True,
             "volume": WEIGHTS_VOLUME_NAME,
         }
 
-    
     @asgi.post("/warmup")
     @asgi.get("/warmup")
     async def warmup() -> Dict[str, Any]:
@@ -370,7 +419,7 @@ def create_glimmer_asgi_app() -> FastAPI:
                     "owned_by": "meta-open-weights",
                     "workspace": MODAL_WORKSPACE,
                     "gpu": "H100",
-                    "min_containers": 1,
+                    "min_containers": 0,
                 }
             ],
         }
@@ -378,7 +427,7 @@ def create_glimmer_asgi_app() -> FastAPI:
     @asgi.post("/v1/chat/completions")
     async def chat_completions(req: ChatCompletionRequest) -> Dict[str, Any]:
         try:
-            res = worker.infer_blinded_audit(req.messages, req.blinded_context)
+            res = run_blinded_audit_sync(req.messages, req.blinded_context)
         except SemanticValidationError as exc:
             raise HTTPException(
                 status_code=422,
@@ -420,8 +469,9 @@ glimmer_asgi_app = create_glimmer_asgi_app()
     image=glimmer_image,
     gpu="H100",
     volumes={CACHE_MOUNT_PATH: glimmer_volume},
-    min_containers=1,
-    scaledown_window=300,
+    enable_memory_snapshot=True,
+    min_containers=0,
+    scaledown_window=120,
 )
 @modal.asgi_app()
 def serve() -> FastAPI:

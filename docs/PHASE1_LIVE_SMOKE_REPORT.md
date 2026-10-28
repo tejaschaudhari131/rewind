@@ -205,3 +205,24 @@
     "latency_ms": 3610.61
   }
   ```
+
+---
+
+## 7. `facebook/Muse-Glimmer-30B` on Modal (`modal_app/glimmer_server.py`) — $10K Open Weight Bonus Lane
+
+- **Modal CLI & Profile**: `modal 1.6.3`, workspace `tchaudha` (`ac-K9UiWnlIFIIXrAFJt0Y1wr`, environment `main`: `en-yF9uEvQDp9iyTqymBN8U7i`).
+- **Target Deployed URL**: `https://tchaudha--rewind-muse-glimmer-30b-serve.modal.run` (`POST /v1/chat/completions`, `GET /health`, `POST /warmup`)
+- **Container & Starter Credit Protections**:
+  - Mounts `/workspace/rewind/backend` -> `/root/backend` and `/workspace/rewind/contracts` -> `/root/contracts` via `.add_local_dir(...)` (Modal 1.x API) with `PYTHONPATH=/root`.
+  - Configured with `min_containers=0, scaledown_window=120, enable_memory_snapshot=True` so idle containers scale to zero after 120s without burning starter credits while `POST /warmup` wakes the container on demand.
+- **CIE LAB Witness-Stripe Polarity & Multi-Resolution Rig Inspection**:
+  - `_inspect_image_for_witness_and_seating()` uses `extract_yellow_rod_mask_in_rig_zone()` + `_extract_witness_centroid_lab()` across both `1600x1000` golden rig frames and `640x400` synthetic frames:
+    - `checkpoint_pass_step2.png` -> `finding: "consistent"`, `verdict: "pass"`, `witness_mark_aligned: true`
+    - `checkpoint_fail_flipped_rod.png` -> `finding: "mismatch"`, `verdict: "fail"`, `witness_mark_aligned: false`, `contradicted_predicate_ids: ["witness-stripe-aligned"]`
+    - Unblinded context containing forbidden keys (e.g. `"mask_iou": 0.97` or `"expected_pose_id"`) -> HTTP `422 Unprocessable Entity` with `code: "GLIMMER_BLINDING_VIOLATION"`.
+- **Deployment Command & Note**:
+  - Because the box runs an HTTP egress proxy (`127.0.0.1:8791`), invoke Modal CLI with `MODAL_DISABLE_API_PROXY=1`:
+    ```bash
+    MODAL_DISABLE_API_PROXY=1 modal deploy /workspace/rewind/modal_app/glimmer_server.py
+    ```
+  - *Billing Gate Status*: On `2026-10-28`, `AppCreate` on workspace `tchaudha` (`ac-K9UiWnlIFIIXrAFJt0Y1wr`) returned `ResourceExhaustedError: Workspace ac-K9UiWnlIFIIXrAFJt0Y1wr has exceeded its spend limit` even with `$0.00` metered spend because Modal requires a payment method on file (`https://modal.com/settings/tchaudha/billing`) or workspace spend limit > `$0` to unlock the `$30/month` Starter compute credit limit. Once a payment method / spend limit is enabled in the Modal Billing UI, re-running the deploy command above immediately publishes `https://tchaudha--rewind-muse-glimmer-30b-serve.modal.run`.

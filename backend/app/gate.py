@@ -42,6 +42,7 @@ from backend.app.providers.meta_sam import (
     compute_mask_moments,
 )
 from backend.app.providers.baseten_spark import BasetenSparkClient
+from backend.app.providers.baseten_vision import BasetenVisionAuditor
 from backend.app.providers.modal_glimmer import GlimmerAuditResult, ModalGlimmerClient
 from backend.app.telemetry import build_six_model_proof_ledger
 from backend.app.schemas import make_envelope, sha256_hex
@@ -371,12 +372,18 @@ async def run_checkpoint_gate(
             blinded_context=blinded_context,
         )
         if mode == "live":
-            glimmer_client = ModalGlimmerClient()
-            live_audit = await glimmer_client.audit_checkpoint(
-                current_image=raw_bytes,
-                reference_image=None,
-                blinded_context=blinded_context,
-            )
+            try:
+                live_audit = await BasetenVisionAuditor().audit_checkpoint(
+                    current_image=raw_bytes,
+                    reference_image=None,
+                    blinded_context=blinded_context,
+                )
+            except Exception:
+                live_audit = await ModalGlimmerClient().audit_checkpoint(
+                    current_image=raw_bytes,
+                    reference_image=None,
+                    blinded_context=blinded_context,
+                )
             # Combine live Glimmer output with witness alignment check if live model missed the flipped witness stripe
             if not wit_ok and live_audit.audit.get("finding") == "consistent":
                 live_audit.audit["finding"] = "mismatch"
@@ -553,11 +560,16 @@ async def run_checkpoint_gate(
         glimmer_latency_ms=round(float(glimmer_result.latency_ms), 1),
         glimmer_verdict=glimmer_finding,
         baseten_triggered=bool(baseten_consensus.get("triggered", False)),
-        baseten_latency_ms=round(float(baseten_consensus.get("latency_ms", 242.6)), 1),
+        baseten_latency_ms=round(float(baseten_consensus.get("latency_ms", 0.0)), 1),
         baseten_verdict=str(baseten_consensus.get("baseten_verdict", "STANDBY_PASS")),
         include_repair_image=(decision != "accepted"),
         repair_image_status="ASYNC_PENDING" if decision != "accepted" else "LIVE_API",
         voice_transcript="check step",
+        sam_measured=(mode in ("live", "hybrid")),
+        glimmer_model=glimmer_result.model_used,
+        glimmer_usage=glimmer_result.usage,
+        glimmer_request_id=str((glimmer_result.usage or {}).get("request_id", "")),
+        glimmer_measured=(mode == "live" and bool(glimmer_result.usage)),
     )
 
     return GateRunOutcome(

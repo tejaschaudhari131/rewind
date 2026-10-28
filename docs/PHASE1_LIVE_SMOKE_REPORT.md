@@ -216,7 +216,7 @@
   - Mounts `/workspace/rewind/backend` -> `/root/backend` and `/workspace/rewind/contracts` -> `/root/contracts` via `.add_local_dir(...)` (Modal 1.x API) with `PYTHONPATH=/root`.
   - Configured with `min_containers=0, scaledown_window=120, enable_memory_snapshot=True` so idle containers scale to zero after 120s without burning starter credits while `POST /warmup` wakes the container on demand.
 - **CIE LAB Witness-Stripe Polarity & Multi-Resolution Rig Inspection**:
-  - `_inspect_image_for_witness_and_seating()` uses `extract_yellow_rod_mask_in_rig_zone()` + `_extract_witness_centroid_lab()` across both `1600x1000` golden rig frames and `640x400` synthetic frames:
+  - **Credibility Note (Deterministic Heuristic, NOT a 30B LLM unless `ENABLE_VLLM_ENGINE=1` + GPU deployed)**: `_inspect_image_for_witness_and_seating()` is a deterministic OpenCV/CIE LAB pre-check (`usage: null`, `engine: "deterministic-opencv-lab-heuristic"`) using `extract_yellow_rod_mask_in_rig_zone()` + `_extract_witness_centroid_lab()` across both `1600x1000` golden rig frames and `640x400` synthetic frames:
     - `checkpoint_pass_step2.png` -> `finding: "consistent"`, `verdict: "pass"`, `witness_mark_aligned: true`
     - `checkpoint_fail_flipped_rod.png` -> `finding: "mismatch"`, `verdict: "fail"`, `witness_mark_aligned: false`, `contradicted_predicate_ids: ["witness-stripe-aligned"]`
     - Unblinded context containing forbidden keys (e.g. `"mask_iou": 0.97` or `"expected_pose_id"`) -> HTTP `422 Unprocessable Entity` with `code: "GLIMMER_BLINDING_VIOLATION"`.
@@ -226,3 +226,19 @@
     MODAL_DISABLE_API_PROXY=1 modal deploy /workspace/rewind/modal_app/glimmer_server.py
     ```
   - *Billing Gate Status*: On `2026-10-28`, `AppCreate` on workspace `tchaudha` (`ac-K9UiWnlIFIIXrAFJt0Y1wr`) returned `ResourceExhaustedError: Workspace ac-K9UiWnlIFIIXrAFJt0Y1wr has exceeded its spend limit` even with `$0.00` metered spend because Modal requires a payment method on file (`https://modal.com/settings/tchaudha/billing`) or workspace spend limit > `$0` to unlock the `$30/month` Starter compute credit limit. Once a payment method / spend limit is enabled in the Modal Billing UI, re-running the deploy command above immediately publishes `https://tchaudha--rewind-muse-glimmer-30b-serve.modal.run`.
+
+---
+
+## 8. Credibility Audit & Telemetry Purge (`2026-10-28`)
+
+- **Fabricated token purge**: Removed all hard-coded token counts (`312` / `68` / `380` in `modal_app/glimmer_server.py` and `backend/app/telemetry.py`, plus `416/311`, `520/194`, `290/118`, and default frontend receipt arrays in `WorkbenchUpgrades.tsx`). Every telemetry receipt now includes `measured: bool`, and `all_live_verified` is `True` only when every receipt in the envelope was measured from a live provider response in that run.
+- **Visual Auditor (`backend/app/providers/baseten_vision.py`)**: Added `BasetenVisionAuditor` targeting live `meta-models/muse-spark-open-1026` (`https://inference.baseten.co/v1/chat/completions`, `max_tokens=2048`, `<think>` stripping, strict JSON schema check, verbatim `usage` token recording) with automatic fallback to `ModalGlimmerClient` (`muse-spark-1.3-contributor` vision over Meta `/v1/responses`).
+- **Deterministic Flipped-Rod Gate (`scenario="fail_flipped_rod"`)**:
+  - `decision`: `"rejected"`, `silhouette_iou`: `0.9722` (`>= 0.90`), `witness_polarity_cosine`: `-0.994` (`< 0.50`)
+  - `all_live_verified`: `False` in `fixture` mode (zero fabricated tokens: all uncalled model receipts report `status="NOT_MEASURED"`, `tokens_in=0`, `tokens_out=0`, `latency_ms=0.0`).
+- **Measured Live Provider Numbers (Sections 2–6)**:
+  - `sam-3.1` (`POST /v1/responses`): `816.6–1089.7 ms`
+  - `muse-spark-1.3-contributor` (`POST /v1/responses`): `1501.6 ms`, `input_tokens=380`, `output_tokens=549`
+  - `muse-voice-transcribe-1.0` (`wss://api.meta.ai/v1/asr/realtime`): `1626.8 ms` E2E
+  - `muse-image-1.0` (`POST /v1/images/edits`): `6648.7 ms`, `input_tokens=312`, `output_tokens=1084`
+  - `meta-models/muse-spark-open-1026` on Baseten (text conflict arbiter, req `54ca701a184499b9f75bfa559080e6c99749e`): `3610.61 ms`, `prompt_tokens=287`, `completion_tokens=800` (`reasoning_tokens=749`), `total_tokens=1087`, estimated cost `~$0.0006` from the `$100` Baseten credit pool.

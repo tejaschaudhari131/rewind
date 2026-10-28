@@ -142,7 +142,8 @@ def test_six_model_proof_ledger_and_phase5_api_endpoints() -> None:
     assert len(d["receipts"]) >= 6
     model_ids = [r["model_id"] for r in d["receipts"]]
     assert "meta-models/muse-spark-open-1026" in model_ids
-    assert "Muse-Glimmer-30B" in model_ids
+    assert "opencv-lab-witness-precheck" in model_ids
+    assert d["all_live_verified"] is False
     assert "sam-3.1" in model_ids
 
     client = TestClient(app)

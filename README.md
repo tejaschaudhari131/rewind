@@ -44,6 +44,27 @@ Every runtime stage has a single authorized producer under `contracts/contract.s
 
 ---
 
+---
+
+## 3A. What Is Live vs. Deterministic (Credibility & Telemetry Policy)
+
+REWIND never fabricates token counts, request IDs, or model latencies. Every receipt in `/api/telemetry` carries `measured: true | false`; anything not invoked on the current run is reported as `NOT_MEASURED` with `0` tokens and `0.0 ms` latency.
+
+| Component | What Runs in `mode="live"` | What Runs in `mode="fixture"` (Offline / CI) | Classification |
+| :--- | :--- | :--- | :--- |
+| **`APRILTAG_36h11` Homography & `mat_z0` Metrology** | OpenCV ArUco + CLAHE + planar homography (`4.0 px/mm`) | Same deterministic code | **Deterministic OpenCV (not a model)** |
+| **CIE LAB Witness-Polarity Pre-Check** | `_extract_witness_centroid_lab()` cosine (`+0.996` pass / `-0.994` flipped) | Same deterministic code | **Deterministic OpenCV pre-check (`DETERMINISTIC_LOCAL`, never presented as a model)** |
+| **Parametric `.STEP` / `.STL` CAD Worker** | CadQuery + trimesh (`flat_two_hole_link_v1`) | Same deterministic code | **Deterministic CAD geometry** |
+| **Segmentation (`sam-3.1`)** | Live `POST https://api.meta.ai/v1/responses` + base85 RLE decode (`~816–1089 ms` measured in Phase 1) | Local HSV/contour mask fixture (`NOT_MEASURED`) | **Live Meta Model API** |
+| **Blinded Visual Witness/Seating Audit** | `BasetenVisionAuditor` -> live Baseten `meta-models/muse-spark-open-1026` (`image_url` base64, `max_tokens=2048`, `<think>` stripped, real `usage` tokens recorded), with automatic fallback to Meta `muse-spark-1.3-contributor` vision if multimodal input is rejected | `modal_app/glimmer_server.py` OpenCV/LAB heuristic (`usage: null`, `engine: "deterministic-opencv-lab-heuristic"`, labeled `NOT_MEASURED`) | **Live Baseten / Meta Vision in `live`; deterministic heuristic in `fixture` (Modal H100 vLLM deploy blocked only by workspace billing card gate)** |
+| **Open-Weight Conflict Arbiter** | Live Baseten `meta-models/muse-spark-open-1026` (`POST https://inference.baseten.co/v1/chat/completions`, measured `3,610 ms`, `prompt_tokens=287`, `completion_tokens=800`, req `54ca701a184499b9f75bfa559080e6c99749e`) | Deterministic rule when `IoU >= 0.90` & witness fails (`NOT_MEASURED`) | **Live Baseten Open-Weight (`BASETEN_OPEN_WEIGHT`)** |
+| **Reverse DAG & Planner (`muse-spark-1.3-contributor`)** | Live `POST https://api.meta.ai/v1/responses` (`1,501 ms`, `input_tokens=380`, `output_tokens=549`) | Cached schema-valid fixture (`NOT_MEASURED`) | **Live Meta Model API** |
+| **CAD Drawing CUA (`muse-wonder-1.0`)** | `MetaWonderClient.run_cua_step()` sends `tools: [{"type": "computer"}]` to Meta `/v1/responses` when `mode="live"` | Deterministic UI cursor overlay at `(600, 420)` labeled `status: "fixture_overlay", measured: false` | **Live request payload in `live`; honest UI overlay in `fixture`** |
+| **Voice Command (`muse-voice-transcribe-1.0`)** | Live `wss://api.meta.ai/v1/asr/realtime` (`1,626 ms` E2E on `check_step_24khz.wav`) | Browser Web Speech / button trigger (`NOT_MEASURED`) | **Live Meta Realtime ASR** |
+| **Visual Repair Card (`muse-image-1.0`)** | Live `POST https://api.meta.ai/v1/images/edits` (`6,648 ms`) | Pre-rendered `repair_card_step2.png` (`NOT_MEASURED`) | **Live Meta Image Edit API** |
+
+---
+
 ## 4. Plane-Aware Metrology & Printable Hardware Artifacts
 
 ### 1:1 Printable `400 × 250 mm` `APRILTAG_36h11` Calibration Mat (`plane_id: "mat_z0"`)

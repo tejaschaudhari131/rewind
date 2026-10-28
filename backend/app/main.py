@@ -724,8 +724,9 @@ async def run_bonus_cua_inspect(req: BonusLaneRequest) -> Dict[str, Any]:
         }
     else:
         info = {
-            "status": "inspected",
-            "model": "muse-wonder-1.0",
+            "status": "fixture_overlay",
+            "measured": False,
+            "model": "deterministic-cua-overlay (set mode='live' for Meta /v1/responses computer tool)",
             "tool_declaration": {"type": "computer", "display_width": 1200, "display_height": 680},
             "computer_calls": [
                 {
@@ -737,8 +738,8 @@ async def run_bonus_cua_inspect(req: BonusLaneRequest) -> Dict[str, Any]:
                     ],
                 }
             ],
-            "summary": "Muse Wonder 1.0 CUA (`tools: [{\"type\": \"computer\"}]`) inspected `flat_two_hole_link_v1_drawing.png`, clicked the 150.00 mm C-C dimension callout at (600, 420), and verified watertight STEP/STL readiness (max error 0.00003 mm <= 0.10 mm).",
-            "latency_ms": 18.4,
+            "summary": "[Deterministic UI overlay — not a live model call in fixture mode] Inspects flat_two_hole_link_v1_drawing.png at (600, 420); switch to mode='live' to invoke Meta /v1/responses with tools=[{type:'computer'}].",
+            "latency_ms": 0.0,
         }
     session_sm.bonus_outputs["cua_inspect"] = info
     return info
@@ -878,10 +879,10 @@ async def scan_link_and_compile_cad(req: Optional[FlatScanRequest] = None) -> Di
         step_id="scan-flat-link",
         scenario="flat_scan",
         total_wall_ms=elapsed_ms,
-        sam_latency_ms=348.2,
-        rle_base85_bytes=598,
-        decoded_mask_area_px=15420,
-        glimmer_latency_ms=390.4,
+        sam_latency_ms=0.0,
+        rle_base85_bytes=0,
+        decoded_mask_area_px=0,
+        glimmer_latency_ms=0.0,
         glimmer_verdict="consistent",
         baseten_triggered=False,
         include_repair_image=False,
@@ -922,10 +923,10 @@ async def get_async_repair_card(session_id: str, step_id: str) -> Dict[str, Any]
             "model_id": settings.image_model,
             "provider": "Meta Llama API (/v1/images/edits)",
             "purpose": "Async visual repair overlay card generation on rejection",
-            "status": "LIVE_API",
-            "latency_ms": 1420.5,
-            "http_status": 200,
-            "request_id": f"req_img_{session_id[:6]}_{step_id[:6]}",
+            "status": "NOT_MEASURED",
+            "measured": False,
+            "latency_ms": 0.0,
+            "request_id": "",
         },
     }
 

@@ -452,11 +452,10 @@ def create_glimmer_asgi_app() -> FastAPI:
             ],
             "glimmer_verdict": res["structured_verdict"],
             "latency_ms": res["latency_ms"],
-            "usage": {
-                "prompt_tokens": 312,
-                "completion_tokens": 68,
-                "total_tokens": 380,
-            },
+            # This server runs a deterministic OpenCV/LAB heuristic, NOT a language model,
+            # so there are no tokens to report. Never fabricate usage.
+            "usage": None,
+            "engine": "deterministic-opencv-lab-heuristic",
         }
 
     return asgi

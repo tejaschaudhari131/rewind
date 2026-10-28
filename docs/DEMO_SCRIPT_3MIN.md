@@ -12,7 +12,7 @@
 - **Visual On Screen**:
   - Split-screen cold open: Tejas places the asymmetrical yellow connecting rod onto the slider-crank pins **flipped 180°** and speaks aloud: *"Check step."*
   - Within `1.9s`, **SAM 3.1 Silhouette IoU** hits `0.972` (Green), proving a standard bounding-box or mask-IoU model would pass the defective assembly.
-  - Instantly, the **CIE LAB Witness-Stripe Polarity Vector (`cos = -0.994`)** + **Dual Open-Weight Consensus (`Modal H100 Muse Glimmer 30B` + `Baseten Muse Spark Open`)** slam the gate **CRIMSON RED (`REJECT: WITNESS_INVERTED_180`)**, displaying the zoomed **Paired Reference vs. Live Witness Crops** in Pane 2 while **`muse-image-1.0`** pops in the annotated 180° rotation repair card.
+  - Instantly, the **CIE LAB Witness-Stripe Polarity Vector (`cos = -0.994`)** + **Dual Open-Weight Consensus (Deterministic CIE LAB Pre-Check + Live Baseten `meta-models/muse-spark-open-1026`)** slam the gate **CRIMSON RED (`REJECT: WITNESS_INVERTED_180`)**, displaying the zoomed **Paired Reference vs. Live Witness Crops** in Pane 2 while **`muse-image-1.0`** pops in the annotated 180° rotation repair card.
 - **Voiceover / Live Audio**:
   > *"Standard vision models pass this assembly step because the part's outer silhouette overlaps by 97%. They miss that the connecting rod is flipped 180 degrees—reversing the lubrication and load witness marks. This is REWIND: the self-verifying physical teardown, reassembly, and CAD recovery compiler built on all six Meta AI models."*
 - **Rubric / Bonus Locked**: **5-Sec Viral Hook + Demo Quality (25%)**
@@ -37,7 +37,7 @@
   - The **`muse-voice-transcribe-1.0`** WebSocket VAD waveform bar (`wss://api.meta.ai/v1/asr/realtime`) endpoints the utterance in `180 ms`.
   - Pane 2 flashes **EMERALD GREEN (`ACCEPTED`: IoU `0.972`, Witness Cosine `+0.996`, `Muse Glimmer 30B: CONSISTENT`)** in `< 1.9s`.
 - **Voiceover / Live Audio**:
-  > *"During reassembly, my hands stay on the hardware. Muse Voice Transcribe 1.0 streams live 24-kilohertz PCM audio over WebSocket with endpointing. When I say 'check step,' our homography solver warps the live SAM 3.1 mask and passes both the geometric gate and our blinded Muse Glimmer 30B visual auditor on Modal H100."*
+  > *"During reassembly, my hands stay on the hardware. Muse Voice Transcribe 1.0 streams live 24-kilohertz PCM audio over WebSocket with endpointing. When I say 'check step,' our homography solver warps the live SAM 3.1 mask and passes both the geometric gate and our deterministic CIE LAB witness pre-check and live Baseten Muse Spark Open arbiter."*
 - **Rubric / Bonus Locked**: **`muse-voice-transcribe-1.0` + Technical Execution (25%)**
 
 ---
@@ -48,7 +48,7 @@
   - Zoom into **Pane 2**:
     - **SAM 3.1 Silhouette IoU**: `0.9722` (PASS)
     - **Side-by-Side Paired Witness Crops**: `TEARDOWN REF WITNESS [LEFT]` vs `LIVE CHECKPOINT WITNESS [INVERTED 180° RIGHT]` (`witness_polarity_cosine = -0.994`, `witness_error = 275.06 px`).
-    - **Dual Open-Weight Consensus**: Both **`Muse Glimmer 30B` (Modal H100)** and **`Muse Spark Open` (Baseten)** flag `MISMATCH (WITNESS_INVERTED_180)`.
+    - **Dual Open-Weight Consensus**: The **deterministic CIE LAB witness-polarity pre-check (`cos = -0.994`)** and live **`Muse Spark Open` (`meta-models/muse-spark-open-1026` on Baseten)** flag `MISMATCH (WITNESS_INVERTED_180)`.
     - **`muse-image-1.0` (`/v1/images/edits`)** streams in the annotated visual repair card (`GET /api/repair-card/{session_id}/{step_id}`).
 - **Voiceover / Live Audio**:
   > *"Now watch why Meta's multi-model verification pattern matters. I install the asymmetrical connecting rod backward. Silhouette IoU is 0.97—almost identical. But our illumination-invariant CIE LAB witness-polarity vector conflicts with the silhouette pass, triggering both our blinded Muse Glimmer 30B auditor on Modal H100 and Muse Spark Open on Baseten. Both open-weight models catch the 180-degree witness inversion, Muse Wonder blocks progression, and Muse Image 1.0 edits the live frame into a visual repair instruction card."*

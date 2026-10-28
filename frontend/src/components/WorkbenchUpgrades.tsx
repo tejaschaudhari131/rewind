@@ -34,59 +34,7 @@ export const LiveTelemetryProofBar: React.FC<{
   telemetry?: TelemetryEnvelope | null;
   lastVoiceTranscript?: string;
 }> = ({ telemetry, lastVoiceTranscript = "check step" }) => {
-  const receipts = telemetry?.receipts ?? [
-    {
-      model_id: "sam-3.1",
-      provider: "Meta API",
-      purpose: "RLE Mask",
-      status: "LIVE_API",
-      latency_ms: 342.4,
-      request_id: "req_sam_9f82a1",
-      rle_base85_bytes: 584,
-      decoded_mask_area_px: 14820,
-    },
-    {
-      model_id: "Muse-Glimmer-30B",
-      provider: "Modal H100",
-      purpose: "Blinded Audit",
-      status: "MODAL_H100_WARM",
-      latency_ms: 388.2,
-      request_id: "chatcmpl_glim_4b12",
-    },
-    {
-      model_id: "muse-spark-open-1026",
-      provider: "Baseten",
-      purpose: "Open-Weight Arbiter",
-      status: "BASETEN_OPEN_WEIGHT",
-      latency_ms: 242.6,
-      request_id: "bs_spark_7c09",
-    },
-    {
-      model_id: "muse-wonder-1.0",
-      provider: "Meta CUA",
-      purpose: "Computer Use CAD",
-      status: "LIVE_API",
-      latency_ms: 412.0,
-      request_id: "resp_cua_8d31",
-      encrypted_reasoning: true,
-    },
-    {
-      model_id: "muse-spark-1.3-contributor",
-      provider: "Meta API",
-      purpose: "Reverse DAG",
-      status: "LIVE_API",
-      latency_ms: 148.2,
-      request_id: "resp_dag_2e90",
-    },
-    {
-      model_id: "muse-image-1.0",
-      provider: "Meta Edits",
-      purpose: "Repair Card",
-      status: "LIVE_API",
-      latency_ms: 14.2,
-      request_id: "img_edit_5a19",
-    },
-  ];
+  const receipts = telemetry?.receipts ?? [];
 
   const samReceipt = receipts.find((r) => r.model_id.includes("sam"));
 
@@ -343,7 +291,7 @@ export const PairedWitnessCropComparison: React.FC<{
     >
       <div className="flex flex-wrap items-center justify-between gap-1">
         <span className="font-bold text-slate-200 uppercase">
-          Blinded Tensor Crops // CIE LAB Witness Polarity Vector
+          Deterministic Pre-Check (OpenCV CIE LAB — NOT a model) + Blinded Crops
         </span>
         <div className="flex items-center gap-2">
           <span className="text-sky-300">

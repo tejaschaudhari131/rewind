@@ -128,6 +128,9 @@ class BasetenSparkClient:
             text, parsed_json = extract_spark_open_content_and_json(msg)
             if parsed_json:
                 digest["parsed_json"] = parsed_json
+            digest["usage"] = data.get("usage") or {}
+            digest["request_id"] = str(data.get("id") or resp.headers.get("x-request-id") or "")
+            digest["measured"] = True
             return SessionSummaryResult(
                 provider="baseten",
                 model=self.cfg.baseten_spark_model,

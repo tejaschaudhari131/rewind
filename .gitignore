@@ -1,0 +1,28 @@
+# Secrets & environment
+.env
+.env.*
+!.env.example
+
+# Python caches & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node & Frontend build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

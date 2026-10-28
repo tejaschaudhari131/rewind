@@ -1,0 +1,401 @@
+{
+  "notice": "SYNTHETIC CONTRACT FIXTURE ONLY. Values, timings, hashes, files and successes are illustrative; no API or hardware was tested.",
+  "messages": [
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [],
+      "message_id": "00000000-0000-4000-8000-000000000100",
+      "producer": "sam_adapter",
+      "payload_type": "segmentation",
+      "payload": {
+        "provider_request_id": "synthetic-request",
+        "provider_response_id": "synthetic-response",
+        "source_media": {
+          "artifact_id": "00000000-0000-4000-8000-000000000011",
+          "uri": "fixtures/synthetic/frame.png",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "mime_type": "image/png"
+        },
+        "frames": [
+          {
+            "frame_id": "00000000-0000-4000-8000-000000000010",
+            "image": {
+              "artifact_id": "00000000-0000-4000-8000-000000000011",
+              "uri": "fixtures/synthetic/frame.png",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "mime_type": "image/png"
+            },
+            "frame_index": 0,
+            "timestamp_ms": 0,
+            "width_px": 1280,
+            "height_px": 720,
+            "coordinate_space": "undistorted_source_image_px"
+          }
+        ],
+        "objects": [
+          {
+            "frame_id": "00000000-0000-4000-8000-000000000010",
+            "sam_response_id": "synthetic-response",
+            "sam_track_id": 2,
+            "part_id": "connecting-rod",
+            "identity_status": "confirmed",
+            "bbox_xyxy_inclusive_px": [
+              100,
+              100,
+              500,
+              180
+            ],
+            "mask": {
+              "artifact_id": "00000000-0000-4000-8000-000000000012",
+              "uri": "fixtures/synthetic/mask.png",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "mime_type": "image/png"
+            },
+            "crop": {
+              "artifact_id": "00000000-0000-4000-8000-000000000013",
+              "uri": "fixtures/synthetic/crop.png",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "mime_type": "image/png"
+            },
+            "mask_encoding": "full_frame_binary_png_0_255",
+            "provider_mask_confidence": 0.95
+          }
+        ],
+        "billed_video_frames": null,
+        "response_status": "completed"
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [
+        "00000000-0000-4000-8000-000000000100"
+      ],
+      "message_id": "00000000-0000-4000-8000-000000000101",
+      "producer": "geometry_service",
+      "payload_type": "geometry",
+      "payload": {
+        "status": "pass",
+        "segmentation_message_id": "00000000-0000-4000-8000-000000000100",
+        "calibration_valid": true,
+        "hands_clear": true,
+        "identity_status": "match",
+        "whole_component_status": "present",
+        "seating_status": "aligned",
+        "metrics": [
+          {
+            "metric": "mask_iou",
+            "part_id": "connecting-rod",
+            "value": 0.96,
+            "unit": "ratio",
+            "space": "image",
+            "plane_id": null,
+            "uncertainty_95": null,
+            "policy_threshold_id": "iou-rod-evaluated-v1",
+            "result": "pass",
+            "evidence_frame_ids": [
+              "00000000-0000-4000-8000-000000000010"
+            ]
+          }
+        ],
+        "reason_codes": [],
+        "evidence_frame_ids": [
+          "00000000-0000-4000-8000-000000000010"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [],
+      "message_id": "00000000-0000-4000-8000-000000000102",
+      "producer": "glimmer_adapter",
+      "payload_type": "visual_audit",
+      "payload": {
+        "model_id": "muse-glimmer",
+        "model_revision": "example-only",
+        "deployment_revision": "example-only",
+        "model_output": {
+          "observation_id": "00000000-0000-4000-8000-000000000002",
+          "finding": "consistent",
+          "observations": [
+            {
+              "frame_id": "00000000-0000-4000-8000-000000000010",
+              "region_xyxy_px": [
+                100,
+                100,
+                500,
+                180
+              ],
+              "statement": "Synthetic illustration of visible alignment, not a measured finding."
+            }
+          ],
+          "contradicted_predicate_ids": [],
+          "requires_new_view": false
+        },
+        "finish_reason": "stop",
+        "latency_ms": 1100
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [
+        "00000000-0000-4000-8000-000000000100",
+        "00000000-0000-4000-8000-000000000101",
+        "00000000-0000-4000-8000-000000000102"
+      ],
+      "message_id": "00000000-0000-4000-8000-000000000103",
+      "producer": "gate_service",
+      "payload_type": "gate_decision",
+      "payload": {
+        "decision": "accepted",
+        "reason_codes": [],
+        "geometry_message_id": "00000000-0000-4000-8000-000000000101",
+        "audit_message_id": "00000000-0000-4000-8000-000000000102",
+        "segmentation_message_id": "00000000-0000-4000-8000-000000000100",
+        "checked_scene_version": 42,
+        "committed_scene_version": 42,
+        "completed_predicate_ids": [
+          "rod-visible-alignment"
+        ],
+        "decision_at": "2026-10-28T16:00:02Z",
+        "elapsed_ms": 2000
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [
+        "00000000-0000-4000-8000-000000000103"
+      ],
+      "message_id": "00000000-0000-4000-8000-000000000104",
+      "producer": "wonder_adapter",
+      "payload_type": "planner_proposal",
+      "payload": {
+        "model_id": "muse-wonder-1.0",
+        "provider_response_id": "synthetic-response-plan",
+        "model_output": {
+          "observation_id": "00000000-0000-4000-8000-000000000002",
+          "action": "generate_supported_part",
+          "part_id": "connecting-rod",
+          "instruction": "Request an export of the supported link using the recorded dimensions.",
+          "evidence_ids": [
+            "00000000-0000-4000-8000-000000000010"
+          ],
+          "required_predicate_ids": [],
+          "measurement_record_id": "00000000-0000-4000-8000-000000000031"
+        }
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [
+        "00000000-0000-4000-8000-000000000104"
+      ],
+      "message_id": "00000000-0000-4000-8000-000000000105",
+      "producer": "coordinator",
+      "payload_type": "cad_request",
+      "payload": {
+        "template_id": "flat_two_hole_link_v1",
+        "template_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "measurement_record_id": "00000000-0000-4000-8000-000000000031",
+        "parameters": {
+          "hole_center_distance": {
+            "value_mm": 150,
+            "uncertainty_95_mm": null,
+            "source": "calibrated_flat_scan",
+            "evidence_artifact_ids": [
+              "00000000-0000-4000-8000-000000000030"
+            ],
+            "plane_id": "mat_z0"
+          },
+          "outer_width": {
+            "value_mm": 25,
+            "uncertainty_95_mm": null,
+            "source": "calibrated_flat_scan",
+            "evidence_artifact_ids": [
+              "00000000-0000-4000-8000-000000000030"
+            ],
+            "plane_id": "mat_z0"
+          },
+          "thickness": {
+            "value_mm": 4,
+            "uncertainty_95_mm": null,
+            "source": "manual_caliper",
+            "evidence_artifact_ids": [
+              "00000000-0000-4000-8000-000000000030"
+            ],
+            "plane_id": null
+          },
+          "pin_diameter": {
+            "value_mm": 6,
+            "uncertainty_95_mm": null,
+            "source": "manual_caliper",
+            "evidence_artifact_ids": [
+              "00000000-0000-4000-8000-000000000030"
+            ],
+            "plane_id": null
+          },
+          "diametral_clearance": {
+            "value_mm": 0.5,
+            "uncertainty_95_mm": null,
+            "source": "fabrication_policy",
+            "evidence_artifact_ids": [
+              "00000000-0000-4000-8000-000000000030"
+            ],
+            "plane_id": null
+          }
+        },
+        "material_label": "example stock; not selected",
+        "fabrication_method": "export_only",
+        "requested_formats": [
+          "STEP",
+          "STL"
+        ],
+        "claim_scope": "dimensional_candidate_for_unloaded_test_rig"
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "scene_version": 42,
+      "plan_version": 3,
+      "step_id": "attach-connecting-rod",
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "observation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reference_id": "00000000-0000-4000-8000-000000000003",
+      "reference_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "calibration_id": "fixed-camera-v1",
+      "calibration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_id": "slider-crank-v1",
+      "policy_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "captured_at": "2026-10-28T16:00:00Z",
+      "produced_at": "2026-10-28T16:00:01Z",
+      "parent_message_ids": [
+        "00000000-0000-4000-8000-000000000105"
+      ],
+      "message_id": "00000000-0000-4000-8000-000000000106",
+      "producer": "cad_worker",
+      "payload_type": "cad_artifact",
+      "payload": {
+        "cad_request_message_id": "00000000-0000-4000-8000-000000000105",
+        "parameter_record": {
+          "artifact_id": "00000000-0000-4000-8000-000000000032",
+          "uri": "fixtures/synthetic/parameters.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "mime_type": "application/json"
+        },
+        "template_source": {
+          "artifact_id": "00000000-0000-4000-8000-000000000033",
+          "uri": "fixtures/synthetic/template.py",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "mime_type": "text/x-python"
+        },
+        "exports": [
+          {
+            "artifact_id": "00000000-0000-4000-8000-000000000034",
+            "uri": "fixtures/synthetic/link.step",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "mime_type": "application/step"
+          }
+        ],
+        "checks": [
+          {
+            "check_id": "synthetic-solid-check",
+            "result": "pass",
+            "evidence": {
+              "artifact_id": "00000000-0000-4000-8000-000000000035",
+              "uri": "fixtures/synthetic/report.json",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "mime_type": "application/json"
+            }
+          }
+        ],
+        "status": "geometry_valid",
+        "physical_fit_status": "not_tested",
+        "physical_test_record": null
+      }
+    }
+  ]
+}

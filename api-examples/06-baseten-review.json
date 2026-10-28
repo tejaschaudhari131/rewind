@@ -1,0 +1,21 @@
+{
+  "model": "meta-models/muse-spark-open",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Review this ambiguous observation offline. Describe visible discrepancies and missing evidence. Your review cannot authorize the current physical workflow."
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://media.example.invalid/session/checkpoint.png"
+          }
+        }
+      ]
+    }
+  ],
+  "max_tokens": 1024
+}

@@ -1,0 +1,6 @@
+{
+  "type": "speechComplete",
+  "turnId": 1,
+  "transcript": "Check the connecting rod.",
+  "audioProcessedMs": 3600
+}

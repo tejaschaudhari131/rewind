@@ -1,0 +1,2758 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rewind:contract:1.0.0",
+  "title": "REWIND inter-stage contract",
+  "description": "Application contract, not a Meta provider response format. Authentication and semantic checks are mandatory.",
+  "$defs": {
+    "Artifact": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mime_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "artifact_id",
+        "uri",
+        "sha256",
+        "mime_type"
+      ],
+      "additionalProperties": false
+    },
+    "Frame": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "image": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "frame_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timestamp_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width_px": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height_px": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coordinate_space": {
+          "const": "undistorted_source_image_px"
+        }
+      },
+      "required": [
+        "frame_id",
+        "image",
+        "frame_index",
+        "timestamp_ms",
+        "width_px",
+        "height_px",
+        "coordinate_space"
+      ],
+      "additionalProperties": false
+    },
+    "SegmentationObject": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sam_response_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sam_track_id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "part_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "confirmed",
+            "provisional",
+            "unknown"
+          ]
+        },
+        "bbox_xyxy_inclusive_px": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "mask": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "crop": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "mask_encoding": {
+          "const": "full_frame_binary_png_0_255"
+        },
+        "provider_mask_confidence": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "frame_id",
+        "sam_response_id",
+        "sam_track_id",
+        "part_id",
+        "identity_status",
+        "bbox_xyxy_inclusive_px",
+        "mask",
+        "crop",
+        "mask_encoding",
+        "provider_mask_confidence"
+      ],
+      "additionalProperties": false
+    },
+    "Segmentation": {
+      "type": "object",
+      "properties": {
+        "provider_request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_response_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_media": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Frame"
+          },
+          "minItems": 1
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SegmentationObject"
+          }
+        },
+        "billed_video_frames": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response_status": {
+          "const": "completed"
+        }
+      },
+      "required": [
+        "provider_request_id",
+        "provider_response_id",
+        "source_media",
+        "frames",
+        "objects",
+        "billed_video_frames",
+        "response_status"
+      ],
+      "additionalProperties": false
+    },
+    "Metric": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "mask_iou"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "ratio"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "visible_coverage"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "ratio"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "pivot_error"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "px"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "witness_error"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "px"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "registration_error"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "px"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "boundary_p95"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "px"
+            },
+            "space": {
+              "const": "image"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "pivot_error"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "mm"
+            },
+            "space": {
+              "const": "calibrated_plane"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "hole_center_error"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "mm"
+            },
+            "space": {
+              "const": "calibrated_plane"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "const": "stable_duration"
+            },
+            "part_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unit": {
+              "const": "ms"
+            },
+            "space": {
+              "const": "time"
+            },
+            "plane_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_95": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy_threshold_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "unknown"
+              ]
+            },
+            "evidence_frame_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "metric",
+            "part_id",
+            "value",
+            "unit",
+            "space",
+            "plane_id",
+            "uncertainty_95",
+            "policy_threshold_id",
+            "result",
+            "evidence_frame_ids"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Geometry": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "insufficient_evidence"
+          ]
+        },
+        "segmentation_message_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calibration_valid": {
+          "type": "boolean"
+        },
+        "hands_clear": {
+          "type": "boolean"
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unknown"
+          ]
+        },
+        "whole_component_status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "absent",
+            "unknown"
+          ]
+        },
+        "seating_status": {
+          "type": "string",
+          "enum": [
+            "aligned",
+            "misaligned",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Metric"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_frame_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "status",
+        "segmentation_message_id",
+        "calibration_valid",
+        "hands_clear",
+        "identity_status",
+        "whole_component_status",
+        "seating_status",
+        "metrics",
+        "reason_codes",
+        "evidence_frame_ids"
+      ],
+      "additionalProperties": false
+    },
+    "VisualAudit": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deployment_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_output": {
+          "type": "object",
+          "properties": {
+            "observation_id": {
+              "type": "string"
+            },
+            "finding": {
+              "type": "string",
+              "enum": [
+                "consistent",
+                "mismatch",
+                "insufficient_evidence"
+              ]
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "frame_id": {
+                    "type": "string"
+                  },
+                  "region_xyxy_px": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "statement": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "frame_id",
+                  "region_xyxy_px",
+                  "statement"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "contradicted_predicate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requires_new_view": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "observation_id",
+            "finding",
+            "observations",
+            "contradicted_predicate_ids",
+            "requires_new_view"
+          ],
+          "additionalProperties": false
+        },
+        "finish_reason": {
+          "const": "stop"
+        },
+        "latency_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "model_id",
+        "model_revision",
+        "deployment_revision",
+        "model_output",
+        "finish_reason",
+        "latency_ms"
+      ],
+      "additionalProperties": false
+    },
+    "PlannerProposal": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "const": "muse-wonder-1.0"
+        },
+        "provider_response_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_output": {
+          "type": "object",
+          "properties": {
+            "observation_id": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "show_reference",
+                "request_capture",
+                "request_clarification",
+                "instruct_move",
+                "generate_supported_part",
+                "finish"
+              ]
+            },
+            "part_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "instruction": {
+              "type": "string"
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required_predicate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "measurement_record_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "observation_id",
+            "action",
+            "part_id",
+            "instruction",
+            "evidence_ids",
+            "required_predicate_ids",
+            "measurement_record_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "model_id",
+        "provider_response_id",
+        "model_output"
+      ],
+      "additionalProperties": false
+    },
+    "GateDecision": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "rejected",
+            "unknown",
+            "pending"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "geometry_message_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audit_message_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "segmentation_message_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "committed_scene_version": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed_predicate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "decision_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "decision",
+        "reason_codes",
+        "geometry_message_id",
+        "audit_message_id",
+        "segmentation_message_id",
+        "checked_scene_version",
+        "committed_scene_version",
+        "completed_predicate_ids",
+        "decision_at",
+        "elapsed_ms"
+      ],
+      "additionalProperties": false
+    },
+    "Dimension": {
+      "type": "object",
+      "properties": {
+        "value_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "uncertainty_95_mm": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "calibrated_flat_scan",
+            "manual_caliper",
+            "declared_stock",
+            "fabrication_policy"
+          ]
+        },
+        "evidence_artifact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1
+        },
+        "plane_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value_mm",
+        "uncertainty_95_mm",
+        "source",
+        "evidence_artifact_ids",
+        "plane_id"
+      ],
+      "additionalProperties": false
+    },
+    "CadRequest": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "const": "flat_two_hole_link_v1"
+        },
+        "template_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "measurement_record_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "hole_center_distance": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "outer_width": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "thickness": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "pin_diameter": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "diametral_clearance": {
+              "$ref": "#/$defs/Dimension"
+            }
+          },
+          "required": [
+            "hole_center_distance",
+            "outer_width",
+            "thickness",
+            "pin_diameter",
+            "diametral_clearance"
+          ],
+          "additionalProperties": false
+        },
+        "material_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fabrication_method": {
+          "type": "string",
+          "enum": [
+            "fdm",
+            "laser_cut",
+            "machined",
+            "export_only"
+          ]
+        },
+        "requested_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "STEP",
+              "STL"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "claim_scope": {
+          "const": "dimensional_candidate_for_unloaded_test_rig"
+        }
+      },
+      "required": [
+        "template_id",
+        "template_sha256",
+        "measurement_record_id",
+        "parameters",
+        "material_label",
+        "fabrication_method",
+        "requested_formats",
+        "claim_scope"
+      ],
+      "additionalProperties": false
+    },
+    "CadArtifact": {
+      "type": "object",
+      "properties": {
+        "cad_request_message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "parameter_record": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "template_source": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "exports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "minItems": 1
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unknown"
+                ]
+              },
+              "evidence": {
+                "$ref": "#/$defs/Artifact"
+              }
+            },
+            "required": [
+              "check_id",
+              "result",
+              "evidence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "geometry_valid",
+            "rejected",
+            "insufficient_evidence"
+          ]
+        },
+        "physical_fit_status": {
+          "type": "string",
+          "enum": [
+            "not_tested",
+            "tested_on_this_rig"
+          ]
+        },
+        "physical_test_record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Artifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cad_request_message_id",
+        "parameter_record",
+        "template_source",
+        "exports",
+        "checks",
+        "status",
+        "physical_fit_status",
+        "physical_test_record"
+      ],
+      "additionalProperties": false
+    },
+    "Calibration": {
+      "type": "object",
+      "properties": {
+        "camera_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_width_px": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "image_height_px": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "K_raw": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "distortion_coefficients": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "K_undistorted": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "coordinate_space": {
+          "const": "undistorted_source_image_px"
+        },
+        "tag_dictionary": {
+          "const": "APRILTAG_36h11"
+        },
+        "printed_tag_side_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "planes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "plane_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "z_from_mat_mm": {
+                "type": "number"
+              },
+              "H_undistorted_px_to_plane_mm": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "origin_description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "positive_x_description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "positive_y_description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calibration_frame_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "minItems": 1
+              },
+              "holdout_frame_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "minItems": 1
+              },
+              "holdout_error_95_mm": {
+                "type": "number",
+                "minimum": 0
+              },
+              "valid_image_polygon_px": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "minItems": 3
+              }
+            },
+            "required": [
+              "plane_id",
+              "z_from_mat_mm",
+              "H_undistorted_px_to_plane_mm",
+              "origin_description",
+              "positive_x_description",
+              "positive_y_description",
+              "calibration_frame_ids",
+              "holdout_frame_ids",
+              "holdout_error_95_mm",
+              "valid_image_polygon_px"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "validated",
+            "invalid",
+            "unvalidated"
+          ]
+        }
+      },
+      "required": [
+        "camera_id",
+        "image_width_px",
+        "image_height_px",
+        "K_raw",
+        "distortion_coefficients",
+        "K_undistorted",
+        "coordinate_space",
+        "tag_dictionary",
+        "printed_tag_side_mm",
+        "planes",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "MeasurementRecord": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "const": "flat_two_hole_link_v1"
+        },
+        "plane_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flat_contact_confirmed": {
+          "type": "boolean"
+        },
+        "source_frame_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1
+        },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "hole_center_distance": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "outer_width": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "thickness": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "pin_diameter": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "diametral_clearance": {
+              "$ref": "#/$defs/Dimension"
+            }
+          },
+          "required": [
+            "hole_center_distance",
+            "outer_width",
+            "thickness",
+            "pin_diameter",
+            "diametral_clearance"
+          ],
+          "additionalProperties": false
+        },
+        "independent_center_distance_check": {
+          "$ref": "#/$defs/Dimension"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "eligible_for_cad",
+            "insufficient_evidence",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "template_id",
+        "plane_id",
+        "flat_contact_confirmed",
+        "source_frame_ids",
+        "dimensions",
+        "independent_center_distance_check",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "sam_adapter"
+        },
+        "payload_type": {
+          "const": "segmentation"
+        },
+        "payload": {
+          "$ref": "#/$defs/Segmentation"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "geometry_service"
+        },
+        "payload_type": {
+          "const": "geometry"
+        },
+        "payload": {
+          "$ref": "#/$defs/Geometry"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "glimmer_adapter"
+        },
+        "payload_type": {
+          "const": "visual_audit"
+        },
+        "payload": {
+          "$ref": "#/$defs/VisualAudit"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "wonder_adapter"
+        },
+        "payload_type": {
+          "const": "planner_proposal"
+        },
+        "payload": {
+          "$ref": "#/$defs/PlannerProposal"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "gate_service"
+        },
+        "payload_type": {
+          "const": "gate_decision"
+        },
+        "payload": {
+          "$ref": "#/$defs/GateDecision"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "coordinator"
+        },
+        "payload_type": {
+          "const": "cad_request"
+        },
+        "payload": {
+          "$ref": "#/$defs/CadRequest"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "cad_worker"
+        },
+        "payload_type": {
+          "const": "cad_artifact"
+        },
+        "payload": {
+          "$ref": "#/$defs/CadArtifact"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "calibration_service"
+        },
+        "payload_type": {
+          "const": "calibration"
+        },
+        "payload": {
+          "$ref": "#/$defs/Calibration"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "message_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scene_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "observation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reference_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "producer": {
+          "const": "measurement_service"
+        },
+        "payload_type": {
+          "const": "measurement_record"
+        },
+        "payload": {
+          "$ref": "#/$defs/MeasurementRecord"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "session_id",
+        "scene_version",
+        "plan_version",
+        "step_id",
+        "observation_id",
+        "observation_sha256",
+        "reference_id",
+        "reference_sha256",
+        "calibration_id",
+        "calibration_sha256",
+        "policy_id",
+        "policy_sha256",
+        "captured_at",
+        "produced_at",
+        "parent_message_ids",
+        "producer",
+        "payload_type",
+        "payload"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

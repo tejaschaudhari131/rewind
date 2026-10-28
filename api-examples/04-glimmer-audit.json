@@ -1,0 +1,27 @@
+{
+  "model": "muse-glimmer",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Audit immutable observation REPLACE_OBSERVATION_ID against the first reference image and second current image. Report only visible evidence. Return JSON matching this schema: {\"type\": \"object\", \"properties\": {\"observation_id\": {\"type\": \"string\"}, \"finding\": {\"type\": \"string\", \"enum\": [\"consistent\", \"mismatch\", \"insufficient_evidence\"]}, \"observations\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"frame_id\": {\"type\": \"string\"}, \"region_xyxy_px\": {\"anyOf\": [{\"type\": \"array\", \"items\": {\"type\": \"number\"}}, {\"type\": \"null\"}]}, \"statement\": {\"type\": \"string\"}}, \"required\": [\"frame_id\", \"region_xyxy_px\", \"statement\"], \"additionalProperties\": false}}, \"contradicted_predicate_ids\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"requires_new_view\": {\"type\": \"boolean\"}}, \"required\": [\"observation_id\", \"finding\", \"observations\", \"contradicted_predicate_ids\", \"requires_new_view\"], \"additionalProperties\": false}"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://media.example.invalid/session/reference.png"
+          }
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://media.example.invalid/session/checkpoint.png"
+          }
+        }
+      ]
+    }
+  ],
+  "max_tokens": 1024
+}

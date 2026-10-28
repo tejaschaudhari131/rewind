@@ -1,0 +1,85 @@
+{
+  "model": "muse-wonder-1.0",
+  "store": false,
+  "include": [
+    "reasoning.encrypted_content"
+  ],
+  "reasoning": {
+    "effort": "low"
+  },
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Choose the next supported action from REPLACE_WITH_SERIALIZED_EVIDENCE_AND_GATE_RESULT. You propose actions; only the external controller advances the workflow."
+        }
+      ]
+    }
+  ],
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "name": "PlannerProposal",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "observation_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "show_reference",
+              "request_capture",
+              "request_clarification",
+              "instruct_move",
+              "generate_supported_part",
+              "finish"
+            ]
+          },
+          "part_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instruction": {
+            "type": "string"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_predicate_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "measurement_record_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "observation_id",
+          "action",
+          "part_id",
+          "instruction",
+          "evidence_ids",
+          "required_predicate_ids",
+          "measurement_record_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

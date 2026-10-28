@@ -1,0 +1,12 @@
+{
+  "model": "muse-image-1.0",
+  "prompt": "Create an explanatory illustrated repair card from this reference. This is explanatory artwork, not measurement evidence. Do not depict stress or safety certification.",
+  "images": [
+    {
+      "image_url": "https://media.example.invalid/session/reference.png"
+    }
+  ],
+  "n": 1,
+  "response_format": "b64_json",
+  "output_format": "png"
+}

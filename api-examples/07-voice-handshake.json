@@ -1,0 +1,13 @@
+{
+  "authorization": {
+    "accessToken": "Bearer REPLACE_SERVER_SIDE"
+  },
+  "audioEncoding": "PCM_24KHZ",
+  "model": "muse-voice-transcribe-1.0",
+  "mode": "ENDPOINTING",
+  "keywords": [
+    "connecting rod",
+    "slider",
+    "crank"
+  ]
+}

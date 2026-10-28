@@ -1,0 +1,10 @@
+{
+  "hole_center_distance_mm": 150.01,
+  "outer_width_mm": 25.0,
+  "thickness_mm": 4.0,
+  "pin_diameter_mm": 7.98,
+  "diametral_clearance_mm": 0.4,
+  "exported_hole_diameter_mm": 7.98,
+  "end_radius_mm": 12.5,
+  "overall_length_mm": 175.01
+}

@@ -1,0 +1,42 @@
+{
+  "template_id": "flat_two_hole_link_v1",
+  "status": "geometry_valid",
+  "is_watertight": true,
+  "is_winding_consistent": true,
+  "volume_mm3": 16561.99,
+  "theoretical_volume_mm3": 16564.38,
+  "target_dimensions_mm": {
+    "hole_center_distance": 150.01,
+    "outer_width": 25.0,
+    "thickness": 4.0,
+    "hole_diameter": 7.98
+  },
+  "measured_stl_dimensions_mm": {
+    "hole_center_distance": 150.01,
+    "outer_width": 25.0,
+    "thickness": 4.0,
+    "hole_diameter_a": 7.98,
+    "hole_diameter_b": 7.98
+  },
+  "measured_step_dimensions_mm": {
+    "hole_center_distance": 150.01,
+    "outer_width": 25.0,
+    "thickness": 4.0,
+    "hole_diameter": 7.98
+  },
+  "abs_errors_mm": {
+    "stl_hole_center_distance": 1e-05,
+    "stl_outer_width": 0.0,
+    "stl_thickness": 0.0,
+    "stl_hole_diameter_a": 0.0,
+    "stl_hole_diameter_b": 3e-05,
+    "step_hole_center_distance": 0.0,
+    "step_outer_width": 0.0,
+    "step_thickness": 0.0,
+    "step_hole_diameter": 0.0
+  },
+  "max_abs_error_mm": 3e-05,
+  "tolerance_mm": 0.1,
+  "claim_scope": "dimensional_candidate_for_unloaded_test_rig",
+  "physical_fit_status": "not_tested"
+}

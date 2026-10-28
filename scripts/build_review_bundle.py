@@ -30,6 +30,7 @@ ZIP_BUNDLE_PATH = WORKSPACE_ROOT / "rewind_adversarial_review_bundle.zip"
 
 SECRET_PATTERNS = [
     re.compile(r"LLM_[A-Za-z0-9_]{8,}"),
+    re.compile(r"b10_[A-Za-z0-9_]{8,}"),
     re.compile(r"ghp_[A-Za-z0-9_]{10,}"),
     re.compile(r"sk-[A-Za-z0-9_]{15,}"),
     re.compile(r"AIza[A-Za-z0-9_\-]{20,}"),
@@ -193,6 +194,7 @@ def build_bundle() -> None:
         "CONTRACT.md",
         "API-CONTRACTS.md",
         "docs/PHASE1_LIVE_SMOKE_REPORT.md",
+        "docs/DEMO_SCRIPT_3MIN.md",
         ".env.example",
         "pytest.ini",
         "contracts/contract.schema.json",
@@ -205,6 +207,7 @@ def build_bundle() -> None:
     # 4. Source Code & Tests (Section 4)
     code_files = collect_files([
         "backend/app/config.py",
+        "backend/app/telemetry.py",
         "backend/app/schemas.py",
         "backend/app/semantic_validator.py",
         "backend/app/calibration.py",
@@ -221,6 +224,7 @@ def build_bundle() -> None:
         "frontend/src/main.tsx",
         "frontend/src/index.css",
         "frontend/src/components/StlViewer3D.tsx",
+        "frontend/src/components/WorkbenchUpgrades.tsx",
         "frontend/src/App.tsx",
         "scripts/generate_contracts.py",
         "scripts/generate_printable_rig.py",
@@ -230,6 +234,7 @@ def build_bundle() -> None:
         "tests/test_live_meta_smoke.py",
         "tests/test_phase2_phase3_pipeline.py",
         "tests/test_phase4_modal_and_ui.py",
+        "tests/test_phase5_redteam_upgrades.py",
     ])
 
     sections: List[str] = []

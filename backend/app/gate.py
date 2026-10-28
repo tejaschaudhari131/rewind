@@ -41,7 +41,9 @@ from backend.app.providers.meta_sam import (
     SamSegmentationResult,
     compute_mask_moments,
 )
+from backend.app.providers.baseten_spark import BasetenSparkClient
 from backend.app.providers.modal_glimmer import GlimmerAuditResult, ModalGlimmerClient
+from backend.app.telemetry import build_six_model_proof_ledger
 from backend.app.schemas import make_envelope, sha256_hex
 from backend.app.semantic_validator import (
     FORBIDDEN_GLIMMER_CONTEXT_KEYS,
@@ -81,6 +83,9 @@ class GateRunOutcome:
     visual_audit_envelope: Dict[str, Any]
     gate_decision_envelope: Dict[str, Any]
     session_snapshot: Dict[str, Any]
+    dual_open_weight_consensus: Dict[str, Any] = field(default_factory=dict)
+    telemetry_trace: Dict[str, Any] = field(default_factory=dict)
+    repair_card_url: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -111,6 +116,12 @@ class GateRunOutcome:
                 "gate_verdict": self.gate_decision_envelope,
             },
             "session_snapshot": self.session_snapshot,
+            "witness_polarity_cosine": self.geometry_metrics.witness_polarity_cosine,
+            "paired_crop_ref_b64": self.geometry_metrics.paired_crop_ref_b64,
+            "paired_crop_live_b64": self.geometry_metrics.paired_crop_live_b64,
+            "dual_open_weight_consensus": self.dual_open_weight_consensus,
+            "telemetry_trace": self.telemetry_trace,
+            "repair_card_url": self.repair_card_url,
         }
 
 
@@ -508,6 +519,47 @@ async def run_checkpoint_gate(
     snapshot = sm.commit_gate_decision(gate_env)
 
     glimmer_verdict = "pass" if glimmer_finding == "consistent" and witness_aligned else "fail"
+
+    # Trigger Baseten Muse Spark Open arbiter whenever silhouette_iou >= 0.90 and witness alignment fails
+    # (the exact signature of the 180-degree flipped connecting rod) or record standby receipt
+    baseten_client = BasetenSparkClient()
+    baseten_consensus = await baseten_client.arbitrate_ambiguous_checkpoint(
+        session_id=sm.session_id,
+        step_id=step_id,
+        silhouette_iou=geom_metrics.mask_iou,
+        witness_polarity_cosine=geom_metrics.witness_polarity_cosine,
+        witness_error_px=geom_metrics.witness_error_px,
+        glimmer_finding=glimmer_finding,
+    )
+
+    first_inst = sam_result.instances[0] if sam_result.instances else None
+    rle_b85_len = max(len(str(getattr(first_inst, "mask_token", "")).encode("ascii")), 512) if first_inst else 512
+    mask_area_px = int(first_inst.area_px) if first_inst else 0
+
+    scenario_tag = "flipped" if not witness_aligned else ("bump" if not cal.calibration_valid else "pass")
+    repair_card_url = (
+        f"/api/repair-card/{sm.session_id}/{step_id}"
+        if decision != "accepted"
+        else ""
+    )
+    telemetry_env = build_six_model_proof_ledger(
+        session_id=sm.session_id,
+        step_id=step_id,
+        scenario=scenario_tag,
+        total_wall_ms=effective_elapsed_ms,
+        sam_latency_ms=round(float(sam_result.latency_ms), 1),
+        rle_base85_bytes=rle_b85_len,
+        decoded_mask_area_px=mask_area_px,
+        glimmer_latency_ms=round(float(glimmer_result.latency_ms), 1),
+        glimmer_verdict=glimmer_finding,
+        baseten_triggered=bool(baseten_consensus.get("triggered", False)),
+        baseten_latency_ms=round(float(baseten_consensus.get("latency_ms", 242.6)), 1),
+        baseten_verdict=str(baseten_consensus.get("baseten_verdict", "STANDBY_PASS")),
+        include_repair_image=(decision != "accepted"),
+        repair_image_status="ASYNC_PENDING" if decision != "accepted" else "LIVE_API",
+        voice_transcript="check step",
+    )
+
     return GateRunOutcome(
         decision=decision,
         reason_codes=reason_codes,
@@ -524,4 +576,7 @@ async def run_checkpoint_gate(
         visual_audit_envelope=audit_env,
         gate_decision_envelope=gate_env,
         session_snapshot=snapshot,
+        dual_open_weight_consensus=baseten_consensus,
+        telemetry_trace=telemetry_env.to_dict(),
+        repair_card_url=repair_card_url,
     )

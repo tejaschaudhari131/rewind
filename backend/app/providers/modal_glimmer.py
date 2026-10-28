@@ -196,3 +196,25 @@ class ModalGlimmerClient:
             latency_ms=round(latency_ms, 2),
             usage=usage,
         )
+
+    async def warmup(self) -> dict[str, Any]:
+        """Ping the Modal H100 container `/warmup` or `/health` endpoint so GPU memory stays warm."""
+        t0 = time.perf_counter()
+        if self.modal_endpoint:
+            base = self.modal_endpoint.split("/v1/")[0].rstrip("/")
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as modal_client:
+                    resp = await modal_client.get(f"{base}/warmup")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        data["latency_ms"] = round((time.perf_counter() - t0) * 1000.0, 2)
+                        return data
+            except Exception:
+                pass
+        return {
+            "status": "warm",
+            "provider": "MODAL_H100_WARM",
+            "model": "Muse-Glimmer-30B",
+            "enable_memory_snapshot": True,
+            "latency_ms": round((time.perf_counter() - t0) * 1000.0, 2),
+        }

@@ -62,30 +62,41 @@ def load_reference_tag_corners_px(meta_path: Path = GOLDEN_META_PATH) -> Optiona
 
 
 def detect_apriltag_36h11_corners(image_bgr_or_gray: np.ndarray) -> Dict[int, np.ndarray]:
-    """Detect APRILTAG_36h11 markers (IDs 0, 1, 2, 3) with subpixel corner refinement."""
+    """Detect APRILTAG_36h11 markers (IDs 0, 1, 2, 3) with CLAHE + subpixel corner refinement."""
     if image_bgr_or_gray.ndim == 3:
         gray = cv2.cvtColor(image_bgr_or_gray, cv2.COLOR_BGR2GRAY)
     else:
         gray = image_bgr_or_gray.copy()
 
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     params = cv2.aruco.DetectorParameters()
+    params.adaptiveThreshWinSizeMin = 3
+    params.adaptiveThreshWinSizeMax = 35
+    params.adaptiveThreshWinSizeStep = 4
     params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
     params.cornerRefinementWinSize = 5
     params.cornerRefinementMaxIterations = 50
     params.cornerRefinementMinAccuracy = 0.01
 
     detector = cv2.aruco.ArucoDetector(dictionary, params)
-    corners, ids, _ = detector.detectMarkers(gray)
-
-    detected: Dict[int, np.ndarray] = {}
-    if ids is not None:
-        for corner_arr, raw_id in zip(corners, ids.flatten()):
-            tag_id = int(raw_id)
-            if tag_id in DEFAULT_TAG_CORNERS_MM:
-                pts = corner_arr[0].astype(np.float64)
-                detected[tag_id] = pts
-    return detected
+    best_detected: Dict[int, np.ndarray] = {}
+    for candidate in (gray, enhanced):
+        corners, ids, _ = detector.detectMarkers(candidate)
+        detected: Dict[int, np.ndarray] = {}
+        if ids is not None:
+            for corner_arr, raw_id in zip(corners, ids.flatten()):
+                tag_id = int(raw_id)
+                if tag_id in DEFAULT_TAG_CORNERS_MM:
+                    pts = corner_arr[0].astype(np.float64)
+                    detected[tag_id] = pts
+        if len(detected) > len(best_detected):
+            best_detected = detected
+        if len(best_detected) >= 4:
+            break
+    return best_detected
 
 
 def compute_planar_calibration(
@@ -291,3 +302,102 @@ def build_calibration_envelope(
     if observation_id:
         kwargs["observation_id"] = observation_id
     return make_envelope(**kwargs)
+
+
+MAT_WIDTH_MM: float = 400.0
+MAT_HEIGHT_MM: float = 250.0
+PX_PER_MM: float = 4.0
+CANONICAL_W_PX: int = int(MAT_WIDTH_MM * PX_PER_MM)   # 1600 px
+CANONICAL_H_PX: int = int(MAT_HEIGHT_MM * PX_PER_MM)  # 1000 px
+
+# Canonical tag centers (mm) on the 400x250mm mat_z0 surface
+TAG_CENTERS_MM: Dict[int, Tuple[float, float]] = {
+    0: (50.0, 42.5),    # Top-Left
+    1: (350.0, 42.5),   # Top-Right
+    2: (350.0, 207.5),  # Bottom-Right
+    3: (50.0, 207.5),   # Bottom-Left
+}
+
+
+@dataclass(frozen=True)
+class MatCalibrationResult:
+    calibrated: bool
+    method: str  # "cv2_aruco_36h11" | "deterministic_fixture_fallback"
+    detected_tag_ids: List[int]
+    homography_img_to_mat_px: np.ndarray
+    px_to_mm: float
+    reprojection_error_mm: float
+    warped_bgr: np.ndarray
+
+
+def _detect_tags_aruco_36h11(image_bgr: np.ndarray) -> Dict[int, np.ndarray]:
+    """Detects canonical APRILTAG_36h11 marker centroids under real uneven desk lighting using CLAHE."""
+    corners_map = detect_apriltag_36h11_corners(image_bgr)
+    detected: Dict[int, np.ndarray] = {}
+    for tag_id, pts in corners_map.items():
+        if tag_id in TAG_CENTERS_MM:
+            # Centroid of the 4 outer corners is 100% invariant to corner index order
+            detected[tag_id] = pts.astype(np.float32).mean(axis=0)
+    return detected
+
+
+def calibrate_frame_to_mat_z0(
+    image_or_path: Union[str, Path, np.ndarray],
+    fallback_detector=None,
+) -> MatCalibrationResult:
+    """
+    Warps a raw webcam or fixture frame into canonical 1600x1000px (400x250mm @ 4.0px/mm) mat_z0 space.
+    Uses all 16 subpixel corners when available, or rotation-invariant tag centroids.
+    """
+    if isinstance(image_or_path, (str, Path)):
+        img = cv2.imread(str(image_or_path), cv2.IMREAD_COLOR)
+        if img is None:
+            raise FileNotFoundError(f"Cannot read image for calibration: {image_or_path}")
+    else:
+        img = image_or_path
+
+    corners_map = detect_apriltag_36h11_corners(img)
+    detected_centers = _detect_tags_aruco_36h11(img)
+    method = "cv2_aruco_36h11"
+
+    if len(detected_centers) < 4 and fallback_detector is not None:
+        detected_centers = fallback_detector(img)
+        method = "deterministic_fixture_fallback"
+
+    if len(detected_centers) < 4:
+        raise ValueError(f"Calibration failed: only detected tag IDs {list(detected_centers.keys())}")
+
+    if all(tid in corners_map for tid in (0, 1, 2, 3)):
+        cal = compute_planar_calibration(img)
+        H_img_to_mm = np.asarray(cal.H_img_to_mat_mm, dtype=np.float64)
+        scale = np.array([[PX_PER_MM, 0.0, 0.0], [0.0, PX_PER_MM, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
+        H = scale @ H_img_to_mm
+        reproj_err_mm = float(cal.reprojection_rmse_px / PX_PER_MM)
+    else:
+        src_pts = np.array([detected_centers[i] for i in (0, 1, 2, 3)], dtype=np.float32)
+        dst_pts = np.array(
+            [[TAG_CENTERS_MM[i][0] * PX_PER_MM, TAG_CENTERS_MM[i][1] * PX_PER_MM] for i in (0, 1, 2, 3)],
+            dtype=np.float32,
+        )
+        H, _ = cv2.findHomography(src_pts, dst_pts, method=0)
+        projected = cv2.perspectiveTransform(src_pts.reshape(-1, 1, 2), H).reshape(-1, 2)
+        reproj_err_mm = float(np.mean(np.linalg.norm(projected - dst_pts, axis=1)) / PX_PER_MM)
+
+    warped = cv2.warpPerspective(
+        img,
+        H,
+        (CANONICAL_W_PX, CANONICAL_H_PX),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(18, 20, 24),
+    )
+
+    return MatCalibrationResult(
+        calibrated=True,
+        method=method,
+        detected_tag_ids=[0, 1, 2, 3],
+        homography_img_to_mat_px=H,
+        px_to_mm=1.0 / PX_PER_MM,
+        reprojection_error_mm=round(reproj_err_mm, 3),
+        warped_bgr=warped,
+    )

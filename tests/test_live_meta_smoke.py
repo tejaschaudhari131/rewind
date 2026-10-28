@@ -133,3 +133,30 @@ async def test_live_voice_transcribe_websocket_via_proxy() -> None:
     assert res.session_id
     assert "check" in res.transcript.lower() and "step" in res.transcript.lower()
     assert res.command.intent == "check_step"
+
+
+@pytest.mark.asyncio
+async def test_live_baseten_muse_spark_open_1026_arbitration() -> None:
+    from backend.app.config import get_settings
+    from backend.app.providers.baseten_spark import BasetenSparkClient
+
+    cfg = get_settings()
+    if not cfg.baseten_api_key:
+        pytest.skip("BASETEN_API_KEY is not configured in .env")
+
+    client = BasetenSparkClient(baseten_api_key=cfg.baseten_api_key, cfg=cfg)
+    assert client.cfg.baseten_spark_model == "meta-models/muse-spark-open-1026"
+    res = await client.arbitrate_ambiguous_checkpoint(
+        session_id="pytest-live-baseten-1026",
+        step_id="step-2-connecting-rod",
+        silhouette_iou=0.9628,
+        witness_polarity_cosine=-0.9412,
+        witness_error_px=41.20,
+        glimmer_finding="mismatch (witness_mark_inverted_180_deg)",
+        mode="live",
+    )
+    assert res["triggered"] is True
+    assert res["provider"] == "BASETEN_OPEN_WEIGHT"
+    assert res["model"] == "meta-models/muse-spark-open-1026"
+    assert res["consensus"] == "DUAL_OPEN_WEIGHT_REJECT_180_FLIP"
+    assert res["latency_ms"] > 10.0

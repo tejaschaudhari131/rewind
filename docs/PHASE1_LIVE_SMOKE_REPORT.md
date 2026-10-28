@@ -166,3 +166,42 @@
   }
   ```
 - **Decoded Artifact**: Valid PNG image (`2,351,878` bytes).
+
+---
+
+## 6. `meta-models/muse-spark-open-1026` on Baseten (`POST https://inference.baseten.co/v1/chat/completions`) — $10K Open Weight Bonus Lane
+
+- **Status**: `200 OK`
+- **Model Slug**: `meta-models/muse-spark-open-1026` (Baseten x Meta Hackathon Dedicated Endpoint, $100 promotional credits + 2M TPM)
+- **Request ID**: `54ca701a184499b9f75bfa559080e6c99749e`
+- **Direct Latency**: `3650.14 ms` (`BasetenSparkClient.arbitrate_ambiguous_checkpoint` latency: `3610.61 ms`)
+- **Token Usage**:
+  - `prompt_tokens`: `287`
+  - `completion_tokens`: `800` (`reasoning_tokens`: `749`, `accepted_prediction_tokens`: `616`)
+  - `total_tokens`: `1087`
+  - *Note*: `meta-models/muse-spark-open-1026` always reasons (`reasoning_tokens: 749`), so `BasetenSparkClient` enforces `max_tokens: 2048` and strips `<think>...</think>` / markdown fences via `extract_spark_open_content_and_json()`.
+- **Live Arbitration Payload (180° Flipped Connecting Rod Ambiguity)**:
+  - Input telemetry: `silhouette_iou = 0.9628` (`>= 0.90`), `witness_polarity_cosine = -0.9412` (`< 0.50`), `witness_error_px = 41.20 px` (`> 6.0 px`), Modal Glimmer 30B finding `"mismatch (witness_mark_inverted_180_deg)"`.
+- **Wire JSON Verdict**:
+  ```json
+  {
+    "verdict": "MISMATCH",
+    "failure_signature": "witness_mark_inverted_180_deg",
+    "corrective_action": "rotate_connecting_rod_180_deg_to_correct_witness_stripe_polarity"
+  }
+  ```
+- **`BasetenSparkClient.arbitrate_ambiguous_checkpoint` Output**:
+  ```json
+  {
+    "triggered": true,
+    "provider": "BASETEN_OPEN_WEIGHT",
+    "model": "meta-models/muse-spark-open-1026",
+    "verdict": "MISMATCH",
+    "baseten_verdict": "MISMATCH (WITNESS_INVERTED_180)",
+    "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG",
+    "modal_glimmer_30b_finding": "mismatch (witness_mark_inverted_180_deg)",
+    "baseten_spark_open_finding": "mismatch",
+    "consensus": "DUAL_OPEN_WEIGHT_REJECT_180_FLIP",
+    "latency_ms": 3610.61
+  }
+  ```

@@ -72,7 +72,11 @@ class Settings:
     model_spark_contributor: str = "muse-spark-1.3-contributor"
     voice_model: str = "muse-voice-transcribe-1.0"
     image_model: str = "muse-image-1.0"
-    baseten_spark_model: str = "meta-models/muse-spark-open-1026"
+    baseten_spark_model: str = field(
+        default_factory=lambda: os.getenv(
+            "BASETEN_SPARK_MODEL", "meta-models/muse-spark-open-1026"
+        )
+    )
     glimmer_modal_model: str = "facebook/Muse-Glimmer-30B"
 
     # Gate & Metrology Thresholds (from CONTRACT.md & LOCK-IN.md)

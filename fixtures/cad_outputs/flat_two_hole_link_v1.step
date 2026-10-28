@@ -3,7 +3,7 @@ HEADER;
 FILE_DESCRIPTION(('REWIND Parametric CAD Export: flat_two_hole_link_v1',
   'PARAMETERS: hole_center_distance=150.0100mm, outer_width=25.0000mm, thickness=4.0000mm, hole_diameter=7.9800mm'),
   '2;1');
-FILE_NAME('flat_two_hole_link_v1.step','2026-10-28T19:48:59',('REWIND CAD Worker'),('REWIND Metrology'),
+FILE_NAME('flat_two_hole_link_v1.step','2026-10-28T21:04:29',('REWIND CAD Worker'),('REWIND Metrology'),
   'REWIND ISO-10303-21 Solid Exporter v1.0','flat_two_hole_link_v1','');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));
 ENDSEC;

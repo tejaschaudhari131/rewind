@@ -345,6 +345,20 @@ def create_glimmer_asgi_app() -> FastAPI:
             "volume": WEIGHTS_VOLUME_NAME,
         }
 
+    
+    @asgi.post("/warmup")
+    @asgi.get("/warmup")
+    async def warmup() -> Dict[str, Any]:
+        return {
+            "status": "warm",
+            "app": APP_NAME,
+            "workspace": MODAL_WORKSPACE,
+            "model": GLIMMER_HF_REPO,
+            "gpu": "H100",
+            "enable_memory_snapshot": True,
+            "warm_at_epoch": time.time(),
+        }
+
     @asgi.get("/v1/models")
     async def list_models() -> Dict[str, Any]:
         return {

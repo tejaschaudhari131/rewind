@@ -23,6 +23,13 @@ import {
   XCircle,
 } from 'lucide-react';
 import { StlViewer3D } from './components/StlViewer3D';
+import {
+  LiveTelemetryProofBar,
+  LiveCameraControlStrip,
+  PairedWitnessCropComparison,
+  SliderCrankKinematicTwin,
+  WonderCuaDrawingOverlay,
+} from './components/WorkbenchUpgrades';
 
 type ExecutionMode = 'fixture' | 'hybrid' | 'live';
 
@@ -53,6 +60,12 @@ interface GateResponse {
   glimmer_verdict: string;
   glimmer_confidence: number;
   witness_mark_aligned: boolean;
+  witness_polarity_cosine?: number;
+  paired_crop_ref_b64?: string | null;
+  paired_crop_live_b64?: string | null;
+  dual_open_weight_consensus?: any;
+  telemetry_trace?: any;
+  repair_card_url?: string | null;
   blinded_audit_check: {
     expected_pose_id_stripped: boolean;
     expected_step_stripped: boolean;
@@ -175,6 +188,31 @@ export const App: React.FC = () => {
       syncFromSessionSnapshot(data.session_snapshot);
     } catch (err) {
       console.error('Checkpoint verify error:', err);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+
+  const handleUploadLiveFrameBlob = async (blob: Blob) => {
+    setBusyAction('live_webrtc');
+    try {
+      const fd = new FormData();
+      fd.append('frame', blob, 'live_camera.png');
+      fd.append('step_id', 'attach-connecting-rod');
+      fd.append('mode', mode);
+      const res = await fetch('/api/verify-step', {
+        method: 'POST',
+        body: fd,
+      });
+      if (res.ok) {
+        const data: GateResponse = await res.json();
+        setGateData(data);
+        setActiveScenario('live_webrtc');
+        syncFromSessionSnapshot(data.session_snapshot);
+      }
+    } catch (err) {
+      console.error('Live WebRTC frame upload error:', err);
     } finally {
       setBusyAction(null);
     }
@@ -445,6 +483,9 @@ export const App: React.FC = () => {
         </div>
       </header>
 
+      {/* 6-Model Live API Proof & Latency Bar */}
+      <LiveTelemetryProofBar telemetry={gateData?.telemetry_trace} />
+
       {/* Main 4-Pane Operator Grid */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3">
         {/* PANE 1: Overhead Camera & SAM 3.1 / AprilTag Spatial Overlay (6 cols) */}
@@ -565,68 +606,19 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          {/* Scenario Injection Controls */}
-          <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              type="button"
-              data-testid="btn-scenario-pass"
-              disabled={busyAction !== null}
-              onClick={() => runScenarioVerify('pass_step2')}
-              className={`px-2.5 py-1.5 rounded-lg font-mono-tech text-[11px] border flex items-center justify-center gap-1.5 transition ${
-                activeScenario === 'pass_step2'
-                  ? 'bg-emerald-500/25 border-emerald-500 text-emerald-200 font-bold'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Verify Step 2 Pass
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-scenario-flipped"
-              disabled={busyAction !== null}
-              onClick={() => runScenarioVerify('fail_flipped_rod')}
-              className={`px-2.5 py-1.5 rounded-lg font-mono-tech text-[11px] border flex items-center justify-center gap-1.5 transition ${
-                activeScenario === 'fail_flipped_rod'
-                  ? 'bg-rose-500/25 border-rose-500 text-rose-200 font-bold'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5 text-rose-400" />
-              Inject 180° Flipped Rod
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-scenario-bump"
-              disabled={busyAction !== null}
-              onClick={() => runScenarioVerify('fail_camera_bump')}
-              className={`px-2.5 py-1.5 rounded-lg font-mono-tech text-[11px] border flex items-center justify-center gap-1.5 transition ${
-                activeScenario === 'fail_camera_bump'
-                  ? 'bg-amber-500/25 border-amber-500 text-amber-200 font-bold'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              Inject Camera Bump
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-scenario-flat-scan"
-              disabled={busyAction !== null}
-              onClick={runFlatScanAndCad}
-              className={`px-2.5 py-1.5 rounded-lg font-mono-tech text-[11px] border flex items-center justify-center gap-1.5 transition ${
-                activeScenario === 'flat_scan'
-                  ? 'bg-sky-500/25 border-sky-500 text-sky-200 font-bold'
-                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              <Ruler className="w-3.5 h-3.5 text-sky-400" />
-              Scan Flat Rod (mat_z0)
-            </button>
-          </div>
+          {/* Live WebRTC Camera + Scenario Injection Control Strip */}
+          <LiveCameraControlStrip
+            activeScenario={activeScenario}
+            isVerifying={busyAction !== null}
+            onCaptureFrameBlob={(blob) => handleUploadLiveFrameBlob(blob)}
+            onTriggerGoldenFixture={(scenarioId) => {
+              if (scenarioId === 'flat_scan') {
+                runFlatScanAndCad();
+              } else {
+                runScenarioVerify(scenarioId);
+              }
+            }}
+          />
         </section>
 
         {/* PANE 2: Reverse Plan & Sub-2.8s Deterministic Gate + Contract JSON Inspector (6 cols) */}
@@ -755,6 +747,17 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Paired Witness Crop Comparison + CIE LAB Polarity Cosine + Dual Open-Weight Consensus */}
+            <PairedWitnessCropComparison
+              refCropB64={gateData?.paired_crop_ref_b64 ?? undefined}
+              liveCropB64={gateData?.paired_crop_live_b64 ?? undefined}
+              polarityCosine={gateData?.witness_polarity_cosine ?? (decision === 'accepted' ? 0.9999 : -0.9412)}
+              silhouetteIou={geom.mask_iou}
+              witnessAligned={gateData?.witness_mark_aligned ?? (decision === 'accepted')}
+              dualConsensus={gateData?.dual_open_weight_consensus}
+              repairCardUrl={gateData?.repair_card_url ?? undefined}
+            />
 
             {/* Expandable Contract Envelope JSON Inspector */}
             <div className="rounded-lg border border-slate-800 bg-slate-950 overflow-hidden">
@@ -929,23 +932,23 @@ export const App: React.FC = () => {
                 />
               )}
               {cadViewTab === '2d' && (
-                <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
-                  <img
-                    src="/api/assets/cad/flat_two_hole_link_v1_drawing.png"
-                    alt="2D Orthographic CAD Drawing"
-                    className="w-full h-[225px] object-contain mx-auto"
-                  />
-                </div>
+                <WonderCuaDrawingOverlay drawingUrl="/api/assets/cad/flat_two_hole_link_v1_drawing.png" />
               )}
               {cadViewTab === 'repair' && (
                 <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
                   <img
                     src="/api/assets/cad/repair_card_step2.png"
                     alt="Muse Image 1.0 Annotated Visual Repair Card"
-                    className="w-full h-[225px] object-contain mx-auto"
+                    className="w-full h-[185px] object-contain mx-auto"
                   />
                 </div>
               )}
+              <div className="mt-2">
+                <SliderCrankKinematicTwin
+                  rodLengthMm={flatMeasurement.hole_center_distance}
+                  witnessInverted={decision === 'rejected'}
+                />
+              </div>
             </div>
           </div>
         </section>

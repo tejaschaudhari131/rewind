@@ -82,6 +82,34 @@ def _mm_to_px(x_mm: float, y_mm: float, scale: float = MAT_SCALE_PX_PER_MM) -> T
     return int(round(x_mm * scale)), int(round(y_mm * scale))
 
 
+
+CANONICAL_TAG36H11_HEX: Dict[int, int] = {
+    0: 0xD5D628584,
+    1: 0xD97F18B49,
+    2: 0xDD280910E,
+    3: 0xE479E9C98,
+}
+
+
+def render_canonical_apriltag_36h11(tag_id: int, side_px: int = 120) -> np.ndarray:
+    """
+    Renders a canonical APRILTAG_36h11 marker image with a 1-cell white quiet zone,
+    1-cell black border, and 6x6 data payload (total 8x8 cells).
+    """
+    code = CANONICAL_TAG36H11_HEX[tag_id]
+    grid = np.ones((8, 8), dtype=np.uint8) * 255
+    grid[0, :] = 0
+    grid[7, :] = 0
+    grid[:, 0] = 0
+    grid[:, 7] = 0
+    for bit_idx in range(36):
+        row = 1 + (bit_idx // 6)
+        col = 1 + (bit_idx % 6)
+        bit_val = (code >> (35 - bit_idx)) & 1
+        grid[row, col] = 255 if bit_val == 1 else 0
+    return cv2.resize(grid, (side_px, side_px), interpolation=cv2.INTER_NEAREST)
+
+
 def generate_apriltag_marker(tag_id: int, size_px: int) -> np.ndarray:
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     marker = cv2.aruco.generateImageMarker(dictionary, tag_id, size_px)

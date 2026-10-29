@@ -29,6 +29,7 @@ import {
   PairedWitnessCropComparison,
   SliderCrankKinematicTwin,
   WonderCuaDrawingOverlay,
+  TwoStageGatePanel,
 } from './components/WorkbenchUpgrades';
 
 type ExecutionMode = 'fixture' | 'hybrid' | 'live';
@@ -182,6 +183,12 @@ export const App: React.FC = () => {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: GateResponse = await res.json();
+      // Two-stage gate: stage-1 payload is provisional; TwoStageGatePanel renders it + the WS stage-2 result.
+      if ((data as unknown as { stage?: number }).stage === 1) {
+        setActiveScenario(scenarioKey);
+        if (data.frame_url) setActiveFrameUrl(data.frame_url);
+        return;
+      }
       setGateData(data);
       setActiveScenario(scenarioKey);
       if (data.frame_url) setActiveFrameUrl(data.frame_url);
@@ -207,6 +214,7 @@ export const App: React.FC = () => {
       });
       if (res.ok) {
         const data: GateResponse = await res.json();
+        if ((data as unknown as { stage?: number }).stage === 1) { setActiveScenario('live_webrtc'); return; }
         setGateData(data);
         setActiveScenario('live_webrtc');
         syncFromSessionSnapshot(data.session_snapshot);
@@ -485,6 +493,7 @@ export const App: React.FC = () => {
 
       {/* 6-Model Live API Proof & Latency Bar */}
       <LiveTelemetryProofBar telemetry={gateData?.telemetry_trace} />
+      <TwoStageGatePanel />
 
       {/* Main 4-Pane Operator Grid */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3">

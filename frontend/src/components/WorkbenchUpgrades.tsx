@@ -544,3 +544,83 @@ export const WonderCuaDrawingOverlay: React.FC<{
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Two-stage gate: provisional (stage 1, local + SAM) -> confirmed / overridden (stage 2, live Baseten).
+// Listens on /ws/session for `checkpoint_provisional` and `checkpoint_stage2`. Shows only measured values.
+// ---------------------------------------------------------------------------
+interface Stage1Payload {
+  observation_id?: string;
+  provisional_verdict?: string;
+  provisional_reason_codes?: string[];
+  stage1_elapsed_ms?: number;
+  silhouette_iou?: number;
+  witness_polarity_cosine?: number | null;
+  witness_check_status?: string;
+  sam?: { measured?: boolean; latency_ms?: number };
+}
+interface Stage2Payload {
+  observation_id?: string;
+  status?: string;
+  decision?: string;
+  resolution?: string;
+  needs_review?: boolean;
+  reason_codes?: string[];
+  model_reason?: string;
+  stage2_elapsed_ms?: number;
+  auditor?: { model?: string | null; measured?: boolean; latency_ms?: number; prompt_tokens?: number; completion_tokens?: number; request_id?: string };
+}
+
+export const TwoStageGatePanel: React.FC = () => {
+  const [s1, setS1] = React.useState<Stage1Payload | null>(null);
+  const [s2, setS2] = React.useState<Stage2Payload | null>(null);
+  React.useEffect(() => {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(`${proto}://${window.location.host}/ws/session`);
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.event === 'checkpoint_provisional') { setS1(msg.data); setS2(null); }
+          if (msg.event === 'checkpoint_stage2') {
+            setS2(msg.data); // only matches the latest observation shown below
+          }
+        } catch { /* ignore */ }
+      };
+    } catch { /* no ws */ }
+    return () => { ws?.close(); };
+  }, []);
+  if (!s1) return null;
+  const s2ForThis = s2 && s2.observation_id === s1.observation_id ? s2 : null;
+  const color = (d?: string) => d === 'accepted' ? 'text-emerald-400' : d === 'rejected' ? 'text-rose-400' : 'text-amber-300';
+  const prov = s1.provisional_verdict ?? 'unknown';
+  return (
+    <div className="mx-3 mt-2 rounded border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-mono flex flex-wrap gap-x-6 gap-y-1 items-center">
+      <span className="text-slate-400">TWO-STAGE GATE</span>
+      <span>
+        Stage 1 <span className={color(prov.replace('provisional_', ''))}>{prov.toUpperCase()}</span>
+        {' '}(provisional, {s1.stage1_elapsed_ms?.toFixed(0)} ms · IoU {s1.silhouette_iou?.toFixed(3)} · witness cos{' '}
+        {s1.witness_polarity_cosine == null ? 'not measurable' : s1.witness_polarity_cosine.toFixed(3)}
+        {s1.sam?.measured ? ` · SAM ${s1.sam.latency_ms?.toFixed(0)} ms` : ' · SAM not live'})
+      </span>
+      <span>→</span>
+      {!s2ForThis ? (
+        <span className="text-sky-300 animate-pulse">Stage 2: waiting for Muse Spark vision audit…</span>
+      ) : s2ForThis.status === 'discarded_stale' ? (
+        <span className="text-slate-400">Stage 2 result discarded (session reset / camera moved)</span>
+      ) : (
+        <span>
+          Stage 2 <span className={color(s2ForThis.decision)}>{(s2ForThis.decision ?? 'unknown').toUpperCase()}</span>
+          {' '}[{s2ForThis.resolution}{s2ForThis.needs_review ? ' · NEEDS REVIEW' : ''}]
+          {' '}{s2ForThis.stage2_elapsed_ms?.toFixed(0)} ms
+          {s2ForThis.auditor?.measured
+            ? ` · ${s2ForThis.auditor.prompt_tokens}+${s2ForThis.auditor.completion_tokens} tok · req ${s2ForThis.auditor.request_id}`
+            : ' · model not measured'}
+          {s2ForThis.model_reason ? <span className="block text-slate-300">Model: “{s2ForThis.model_reason}”</span> : null}
+          {!s2ForThis.model_reason && s2ForThis.reason_codes?.length ? <span className="text-slate-400"> ({s2ForThis.reason_codes.join(', ')})</span> : null}
+        </span>
+      )}
+    </div>
+  );
+};

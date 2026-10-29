@@ -10,6 +10,8 @@ generation, voice command execution, static asset serving (`/api/assets/golden/{
 
 from __future__ import annotations
 
+import asyncio
+
 import base64
 import json
 import mimetypes
@@ -35,6 +37,7 @@ from backend.app.calibration import (
 )
 from backend.app.config import settings
 from backend.app.gate import run_checkpoint_gate
+from backend.app.two_stage import run_two_stage_gate
 from backend.app.geometry import (
     FlatPartMeasurementResult,
     build_measurement_record_envelope,
@@ -191,6 +194,9 @@ class CheckpointVerifyRequest(BaseModel):
     mode: Optional[Literal["fixture", "hybrid", "live"]] = None
     image_path: Optional[str] = None
     simulated_elapsed_ms: Optional[float] = None
+    two_stage: Optional[bool] = Field(
+        default=None, description="Two-stage gate (provisional + async Baseten confirmation). Default: on in live mode."
+    )
 
 
 class FlatScanRequest(BaseModel):
@@ -495,6 +501,13 @@ async def verify_checkpoint(req: CheckpointVerifyRequest) -> Dict[str, Any]:
     if req.scenario in ("pass_step2", "fail_flipped_rod", "fail_camera_bump", "timeout"):
         session_sm.current_step_index = 1
 
+    use_two_stage = req.two_stage if req.two_stage is not None else (effective_mode == "live")
+    if use_two_stage and req.scenario != "timeout":
+        payload = await _start_two_stage(frame_path, effective_mode)
+        payload["scenario"] = req.scenario
+        payload["frame_url"] = f"/api/assets/golden/{frame_path.name}"
+        return payload
+
     outcome = await run_checkpoint_gate(
         frame_path,
         state_machine=session_sm,
@@ -513,6 +526,55 @@ async def verify_checkpoint(req: CheckpointVerifyRequest) -> Dict[str, Any]:
         await run_bonus_repair_card(BonusLaneRequest(mode="fixture"))
     await ws_hub.broadcast("checkpoint_verified", payload)
     return payload
+
+
+STAGE2_RESULTS: Dict[str, Dict[str, Any]] = {}
+STAGE2_TASKS: Dict[str, "asyncio.Task[Dict[str, Any]]"] = {}
+
+
+async def _start_two_stage(frame_path: Path, mode: str) -> Dict[str, Any]:
+    """Stage 1 now (provisional, never final); stage 2 runs in the background and is pushed over /ws/session."""
+
+    async def _on_stage2(result: Dict[str, Any]) -> None:
+        STAGE2_RESULTS[str(result.get("observation_id"))] = result
+        await ws_hub.broadcast("checkpoint_stage2", result)
+
+    stage1, task = await run_two_stage_gate(
+        frame_path, state_machine=session_sm, mode=mode, on_stage2=_on_stage2
+    )
+    obs = str(stage1.get("observation_id"))
+    STAGE2_TASKS[obs] = task
+    stage1["stage2_url"] = f"/api/checkpoint/stage2/{obs}"
+    await ws_hub.broadcast("checkpoint_provisional", stage1)
+    return stage1
+
+
+@app.get("/api/checkpoint/stage2/{observation_id}")
+async def get_stage2_result(observation_id: str, wait_ms: float = 0.0) -> Dict[str, Any]:
+    if observation_id in STAGE2_RESULTS:
+        return STAGE2_RESULTS[observation_id]
+    task = STAGE2_TASKS.get(observation_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="unknown observation_id")
+    if wait_ms > 0:
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), timeout=min(wait_ms, 20000.0) / 1000.0)
+        except asyncio.TimeoutError:
+            pass
+    return {"stage": 2, "status": "pending", "final": False, "observation_id": observation_id}
+
+
+class MotionRequest(BaseModel):
+    motion_score: float
+
+
+@app.post("/api/session/motion")
+async def report_motion(req: MotionRequest) -> Dict[str, Any]:
+    """Camera/scene motion report. Movement while a check is pending invalidates it (stage 2 is discarded)."""
+    state = session_sm.evaluate_stationarity(motion_score=req.motion_score)
+    snap = session_sm.snapshot()
+    await ws_hub.broadcast("motion", {"state": state, "session": snap})
+    return {"state": state, "session": snap}
 
 
 @app.post("/api/metrology/flat-scan")
@@ -852,6 +914,10 @@ async def verify_step_alias(
         saved_path.write_bytes(raw_bytes)
         session_sm.current_step_index = 1
         eff_mode = mode or active_execution_mode or "fixture"
+        if eff_mode == "live":
+            payload = await _start_two_stage(saved_path, eff_mode)
+            payload["scenario"] = scenario or "live_webcam"
+            return payload
         outcome = await run_checkpoint_gate(
             saved_path,
             state_machine=session_sm,

@@ -95,6 +95,7 @@ class GateRunOutcome:
     dual_open_weight_consensus: Dict[str, Any] = field(default_factory=dict)
     telemetry_trace: Dict[str, Any] = field(default_factory=dict)
     repair_card_url: str = ""
+    deferred: Optional[Dict[str, Any]] = None  # two-stage gate internals (not serialized)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -347,6 +348,8 @@ async def run_checkpoint_gate(
     provider_deadline_ms: Optional[float] = None,
     sam_client: Optional[Any] = None,
     audit_client: Optional[Any] = None,
+    visual_auditor: str = "inline",
+    defer_commit: bool = False,
 ) -> GateRunOutcome:
     """Execute the checkpoint verification pipeline and (only if still current) commit to `state_machine`.
 
@@ -440,7 +443,7 @@ async def run_checkpoint_gate(
             frame_id=frame_id,
             blinded_context=blinded_context,
         )
-        if mode != "live":
+        if mode != "live" or visual_auditor == "local":
             return local_audit, wit_ok, local_conf
         if audit_client is not None:
             live_audit = await audit_client.audit_checkpoint(
@@ -591,6 +594,50 @@ async def run_checkpoint_gate(
     gate_env = _gate_envelope(decision, reason_codes)
     validate_cycle_semantics([seg_env, geom_env, audit_env, gate_env])
 
+    if defer_commit:
+        # Stage 1 of the two-stage gate: nothing is committed; the observation stays locked
+        # (state CHECKING) so stage 2 can bind to the same token. Any reset / camera move /
+        # superseding observation invalidates the token and stage 2 will be discarded.
+        def _commit_final(dec: str, reasons: List[str], audit_result: Optional[GlimmerAuditResult] = None,
+                          stage2_elapsed_ms: float = 0.0) -> Tuple[bool, Dict[str, Any], Dict[str, Any]]:
+            nonlocal audit_env
+            if audit_result is not None:
+                ap = audit_result.to_visual_audit_payload(
+                    model_id=str(audit_result.model_used), model_revision=str(audit_result.model_used),
+                    deployment_revision="baseten-inference",
+                )
+                audit_env = make_envelope(payload_type="visual_audit", payload=ap, parent_message_ids=[], **common_env_kwargs)
+            genv = _gate_envelope(dec, reasons)
+            genv["payload"]["stage2_elapsed_ms"] = round(float(stage2_elapsed_ms), 1)
+            if not sm.token_is_current(commit_token):
+                return False, genv, sm.snapshot()
+            try:
+                for env in (cal_env, seg_env, geom_env, audit_env):
+                    sm.record_envelope(env)
+                return True, genv, sm.commit_gate_decision(genv)
+            except SemanticValidationError as exc:
+                if exc.code not in ("CAS_MISMATCH", "SESSION_RETIRED"):
+                    raise
+                return False, genv, sm.snapshot()
+
+        trace = {"provider_completion": completion.status, "stationarity_source": stationarity_source, "committed": False}
+        out = GateRunOutcome(
+            decision="pending", reason_codes=reason_codes, provisional_status=provisional,
+            elapsed_ms=effective_elapsed_ms, calibration=cal, geometry_metrics=geom_metrics,
+            glimmer_verdict="pending", glimmer_confidence=0.0, witness_mark_aligned=witness_aligned,
+            calibration_envelope=cal_env, segmentation_envelope=seg_env, geometry_envelope=geom_env,
+            visual_audit_envelope=audit_env, gate_decision_envelope={}, session_snapshot=sm.snapshot(),
+            telemetry_trace=trace,
+        )
+        out.deferred = {
+            "commit_token": commit_token, "commit_final": _commit_final, "stage1_rule_decision": decision,
+            "stage1_reason_codes": list(reason_codes), "raw_bytes": raw_bytes,
+            "reference_image_bytes": reference_image_bytes, "blinded_context": blinded_context,
+            "sam_result": sam_result, "sam_measured": (mode in ("live", "hybrid") and completion.status == "complete"),
+            "observation_id": locked_obs_id, "frame_id": frame_id, "step_id": step_id, "session_id": sm.session_id,
+        }
+        return out
+
     # Commit only if this observation is still the session's current one.
     committed = False
     if sm.token_is_current(commit_token):
@@ -644,7 +691,7 @@ async def run_checkpoint_gate(
         baseten_usage=baseten_consensus.get("usage") or None,
         baseten_request_id=str(baseten_consensus.get("request_id", "")),
         mask_iou=float(geom_metrics.mask_iou),
-        witness_polarity_cosine=float(geom_metrics.witness_polarity_cosine),
+        witness_polarity_cosine=geom_metrics.witness_polarity_cosine,
         witness_aligned=bool(witness_aligned),
         include_repair_image=(decision != "accepted"),
         repair_image_status="ASYNC_PENDING" if decision != "accepted" else "LIVE_API",

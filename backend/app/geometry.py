@@ -61,8 +61,9 @@ class ElevatedCheckpointMetrics:
     seating_status: str = "aligned"
     status: str = "pass"
     reason_codes: List[str] = field(default_factory=list)
-    witness_polarity_cosine: float = 1.0
-    witness_aligned: bool = True
+    witness_polarity_cosine: Optional[float] = None
+    witness_check_status: str = "insufficient_evidence"
+    witness_aligned: bool = False
     paired_crop_ref_b64: str = ""
     paired_crop_live_b64: str = ""
 
@@ -110,7 +111,7 @@ class WitnessAndGeometryAudit:
     silhouette_iou: float
     centroid_drift_mm: float
     axis_angle_error_deg: float
-    witness_polarity_cosine: float
+    witness_polarity_cosine: Optional[float]
     witness_aligned: bool
     bore_center_distance_mm: Optional[float]
     bore_diameters_mm: Optional[Tuple[float, float]]
@@ -287,7 +288,8 @@ def evaluate_step_geometry_and_witness(
     w_ref = _extract_witness_centroid_lab(ref_warped_bgr, ref_sam_mask_u8)
     w_live = _extract_witness_centroid_lab(live_warped_bgr, live_sam_mask_u8)
 
-    polarity_cos = 1.0
+    # None = witness stripe not measurable (insufficient evidence). Never default to a passing value.
+    polarity_cos: Optional[float] = None
     if w_ref is not None and w_live is not None:
         v_ref = w_ref - c_ref
         v_live = w_live - c_live
@@ -295,8 +297,10 @@ def evaluate_step_geometry_and_witness(
         if denom > 1e-3:
             polarity_cos = float(np.dot(v_ref, v_live) / denom)
 
-    witness_aligned = bool(polarity_cos >= 0.65)
-    if iou >= 0.88 and drift_mm <= 2.0 and not witness_aligned:
+    witness_aligned = bool(polarity_cos is not None and polarity_cos >= 0.65)
+    if polarity_cos is None:
+        verdict = "INSUFFICIENT_WITNESS_EVIDENCE"
+    elif iou >= 0.88 and drift_mm <= 2.0 and not witness_aligned:
         verdict = "REJECT_WITNESS_FLIPPED_180"
     elif iou >= 0.88 and drift_mm <= 2.0 and witness_aligned:
         verdict = "PASS"
@@ -323,7 +327,8 @@ def evaluate_step_geometry_and_witness(
     return {
         "silhouette_iou": round(iou, 4),
         "centroid_drift_mm": round(drift_mm, 2),
-        "witness_polarity_cosine": round(polarity_cos, 4),
+        "witness_polarity_cosine": round(polarity_cos, 4) if polarity_cos is not None else None,
+        "witness_check_status": "measured" if polarity_cos is not None else "insufficient_evidence",
         "witness_aligned": witness_aligned,
         "paired_crop_ref_b64": crop_ref_b64,
         "paired_crop_live_b64": crop_live_b64,
@@ -542,9 +547,11 @@ def evaluate_elevated_checkpoint(
         live_sam_mask_u8=active_mask,
         px_to_mm=0.25,
     )
-    polarity_cos = float(polarity_audit["witness_polarity_cosine"])
-    if witness_error_px > max_witness_error_px and polarity_cos > 0.0:
-        polarity_cos = -0.994
+    # Measured cosine is reported verbatim (no canned substitution). If the stripe could not be
+    # measured, cosine is None and the witness check is insufficient_evidence (never a pass).
+    _pc = polarity_audit["witness_polarity_cosine"]
+    polarity_cos: Optional[float] = None if _pc is None else float(_pc)
+    witness_check_status = "measured" if polarity_cos is not None else "insufficient_evidence"
 
     return ElevatedCheckpointMetrics(
         unit="px",
@@ -566,8 +573,9 @@ def evaluate_elevated_checkpoint(
         seating_status=seating_status,
         status=status,
         reason_codes=reason_codes,
-        witness_polarity_cosine=round(polarity_cos, 4),
-        witness_aligned=bool(witness_error_px <= max_witness_error_px and polarity_cos >= 0.65),
+        witness_polarity_cosine=round(polarity_cos, 4) if polarity_cos is not None else None,
+        witness_check_status=witness_check_status,
+        witness_aligned=bool(polarity_cos is not None and witness_error_px <= max_witness_error_px and polarity_cos >= 0.65),
         paired_crop_ref_b64=str(polarity_audit["paired_crop_ref_b64"]),
         paired_crop_live_b64=str(polarity_audit["paired_crop_live_b64"]),
     )

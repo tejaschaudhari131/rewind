@@ -1,0 +1,669 @@
+[
+  {
+    "run": 0,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_accepted",
+      "provisional_reason_codes": [],
+      "stage1_elapsed_ms": 1224.3,
+      "stage1_within_deadline": true,
+      "session_id": "f32a6fb4-44ca-4ae6-a58a-b4794f8ad1e9",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "69c3c296-cafd-4bf1-b088-e79a1a673a07",
+      "silhouette_iou": 0.9378,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 610.5,
+        "instances": 1
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "f32a6fb4-44ca-4ae6-a58a-b4794f8ad1e9",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "69c3c296-cafd-4bf1-b088-e79a1a673a07",
+      "provisional_verdict": "provisional_accepted",
+      "decision": "unknown",
+      "resolution": "unconfirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "stage2_insufficient_evidence",
+        "stage2_timeout"
+      ],
+      "model_finding": null,
+      "model_reason": "",
+      "model_confidence": null,
+      "auditor": {
+        "model": null,
+        "measured": false,
+        "latency_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "request_id": ""
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 1224.3,
+      "stage2_elapsed_ms": 15008.1,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "8fc8b8c1-04d8-40ad-a208-7a66100fd8e7"
+    },
+    "total_ms": 16234.1
+  },
+  {
+    "run": 0,
+    "fixture": "checkpoint_fail_flipped_rod.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_rejected",
+      "provisional_reason_codes": [
+        "semantic_visual_conflict",
+        "witness_mark_misaligned"
+      ],
+      "stage1_elapsed_ms": 1235.9,
+      "stage1_within_deadline": true,
+      "session_id": "2a86b700-c597-4958-9458-f8bea272632b",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "2a4a3c27-5a2f-4701-a359-f985bcc13622",
+      "silhouette_iou": 0.9384,
+      "witness_polarity_cosine": -0.9999,
+      "witness_check_status": "measured",
+      "witness_error_px": 275.06,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 779.6,
+        "instances": 1
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "2a86b700-c597-4958-9458-f8bea272632b",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "2a4a3c27-5a2f-4701-a359-f985bcc13622",
+      "provisional_verdict": "provisional_rejected",
+      "decision": "rejected",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "witness_mark_misaligned",
+        "model_confirmed_mismatch"
+      ],
+      "model_finding": "mismatch",
+      "model_reason": "REFERENCE shows witness stripe at crank end (left, near red wheel); LIVE shows stripe at opposite slider end (right, near blue block). Orientation is reversed. Rod appears seated on both pins in both crops.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 14023.96,
+        "prompt_tokens": 2805,
+        "completion_tokens": 737,
+        "request_id": "chatcmpl-5c57cffdf3b24a7f892b1eb4d5df59e8"
+      },
+      "arbiter": {
+        "triggered": true,
+        "verdict": "MISMATCH",
+        "consensus": "REJECT_PARTIAL_AGREEMENT",
+        "latency_ms": 13399.1,
+        "measured": true,
+        "request_id": "chatcmpl-795e51f0c41d400ab46662befb60b44b",
+        "explanation": "witness polarity cosine -0.9999 indicates reversed orientation with 275.06px position error; silhouette IoU 0.9384 is non-discriminative for flip on this asymmetric rod and does not override witness; visual auditor not_yet_available does not negate quantitative mismatch",
+        "usage": {
+          "prompt_tokens": 345,
+          "completion_tokens": 3854,
+          "total_tokens": 4199,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 128
+          },
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 2715,
+            "audio_tokens": 0,
+            "reasoning_tokens": 3761,
+            "rejected_prediction_tokens": 5258
+          }
+        }
+      },
+      "stage1_elapsed_ms": 1235.9,
+      "stage2_elapsed_ms": 14024.7,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "8bdea829-b4bf-42ab-85b6-168411937fe4"
+    },
+    "total_ms": 15263.3
+  },
+  {
+    "run": 1,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 481.3,
+      "stage1_within_deadline": true,
+      "session_id": "b2481c7b-23ae-45ae-b5f5-ebf70b747e13",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "a8d81279-3c3c-4fad-8943-f9665bd0b2f7",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "b2481c7b-23ae-45ae-b5f5-ebf70b747e13",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "a8d81279-3c3c-4fad-8943-f9665bd0b2f7",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "unconfirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "stage2_insufficient_evidence",
+        "stage2_timeout"
+      ],
+      "model_finding": null,
+      "model_reason": "",
+      "model_confidence": null,
+      "auditor": {
+        "model": null,
+        "measured": false,
+        "latency_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "request_id": ""
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 481.3,
+      "stage2_elapsed_ms": 15017.1,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "c0d67943-3f2a-42e2-b466-bdc0d0b2a6da"
+    },
+    "total_ms": 15500.5
+  },
+  {
+    "run": 1,
+    "fixture": "checkpoint_fail_flipped_rod.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "semantic_visual_conflict",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 385.7,
+      "stage1_within_deadline": true,
+      "session_id": "99162cc2-546d-462e-b2a9-6442cfa262c5",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "1b23ad75-de91-44d5-abe9-80cc31268d72",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": -1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 275.06,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "99162cc2-546d-462e-b2a9-6442cfa262c5",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "1b23ad75-de91-44d5-abe9-80cc31268d72",
+      "provisional_verdict": "unknown",
+      "decision": "rejected",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "witness_mark_misaligned",
+        "model_confirmed_mismatch"
+      ],
+      "model_finding": "mismatch",
+      "model_reason": "REFERENCE shows witness stripe near crank (red wheel) end; LIVE shows stripe near slider (blue) end - opposite ends, indicating reversed orientation. Rod appears seated flush on both pins in LIVE with no visible lift or misalignment.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 8477.31,
+        "prompt_tokens": 2805,
+        "completion_tokens": 936,
+        "request_id": "chatcmpl-57e1a8d923e8457cb2e6ec164c029cbe"
+      },
+      "arbiter": {
+        "triggered": true,
+        "verdict": "TIMEOUT",
+        "measured": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 385.7,
+      "stage2_elapsed_ms": 15009.3,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "68a3b16a-d70a-418d-8c98-9ae17747d6bb"
+    },
+    "total_ms": 15398.6
+  },
+  {
+    "run": 2,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 506.1,
+      "stage1_within_deadline": true,
+      "session_id": "51fbf537-4ce6-4c29-9164-7be670e7f55e",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "cbf09db1-def7-485a-85a3-b0ef9fd1ac95",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "51fbf537-4ce6-4c29-9164-7be670e7f55e",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "cbf09db1-def7-485a-85a3-b0ef9fd1ac95",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "unconfirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "stage2_insufficient_evidence",
+        "stage2_timeout"
+      ],
+      "model_finding": null,
+      "model_reason": "",
+      "model_confidence": null,
+      "auditor": {
+        "model": null,
+        "measured": false,
+        "latency_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "request_id": ""
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 506.1,
+      "stage2_elapsed_ms": 15017.1,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "6c2857d8-aa2e-4c7c-a22b-4c4bb72101bd"
+    },
+    "total_ms": 15525.0
+  },
+  {
+    "run": 2,
+    "fixture": "checkpoint_fail_flipped_rod.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "semantic_visual_conflict",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 405.8,
+      "stage1_within_deadline": true,
+      "session_id": "c652f558-d86a-4401-a268-d5ad1af6613f",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "e47daa92-29be-48e9-84ef-8c53723d1c7d",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": -1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 275.06,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "c652f558-d86a-4401-a268-d5ad1af6613f",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "e47daa92-29be-48e9-84ef-8c53723d1c7d",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "unconfirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "stage2_insufficient_evidence",
+        "stage2_timeout"
+      ],
+      "model_finding": null,
+      "model_reason": "",
+      "model_confidence": null,
+      "auditor": {
+        "model": null,
+        "measured": false,
+        "latency_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "request_id": ""
+      },
+      "arbiter": {
+        "triggered": true,
+        "verdict": "MISMATCH",
+        "consensus": "REJECT_PARTIAL_AGREEMENT",
+        "latency_ms": 11607.29,
+        "measured": true,
+        "request_id": "chatcmpl-d79c1524fd674b909c19411a496aeeac",
+        "explanation": "witness polarity cosine -1.0 = exact reversal with 275.06px position error indicates rod reversed; silhouette IoU 0.9722 is non-discriminative for asymmetric rod, visual auditor not_yet_available provides no independent override",
+        "usage": {
+          "prompt_tokens": 344,
+          "completion_tokens": 3355,
+          "total_tokens": 3699,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 128
+          },
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 2381,
+            "audio_tokens": 0,
+            "reasoning_tokens": 3269,
+            "rejected_prediction_tokens": 4437
+          }
+        }
+      },
+      "stage1_elapsed_ms": 405.8,
+      "stage2_elapsed_ms": 15007.9,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "95ef569e-b8cd-4628-8470-883df0dc8615"
+    },
+    "total_ms": 15416.0
+  },
+  {
+    "run": 3,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 821.8,
+      "stage1_within_deadline": true,
+      "session_id": "f95b728c-bc93-49d6-9670-21fbdaa330dd",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "01569dda-54e4-4d6e-b743-0729512fec78",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "f95b728c-bc93-49d6-9670-21fbdaa330dd",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "01569dda-54e4-4d6e-b743-0729512fec78",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "overridden",
+      "needs_review": true,
+      "reason_codes": [
+        "model_local_disagreement_needs_review"
+      ],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the same crank-side (left) end in both REFERENCE and LIVE crops and the rod appears fully seated on both pins with no lift or offset visible.",
+      "model_confidence": 0.99,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 9398.48,
+        "prompt_tokens": 2805,
+        "completion_tokens": 876,
+        "request_id": "chatcmpl-cadc6070d0d0423a897585dd42f713f4"
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 821.8,
+      "stage2_elapsed_ms": 9399.5,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "6f2ea60f-3854-4d4c-a274-42824813aa76"
+    },
+    "total_ms": 10224.3
+  },
+  {
+    "run": 4,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 303.7,
+      "stage1_within_deadline": true,
+      "session_id": "18082c47-917a-495f-800a-88e176506696",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "6339b14e-99aa-4774-89ef-9472580159fd",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "18082c47-917a-495f-800a-88e176506696",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "6339b14e-99aa-4774-89ef-9472580159fd",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "overridden",
+      "needs_review": true,
+      "reason_codes": [
+        "model_local_disagreement_needs_review"
+      ],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the crank (left) end in both REFERENCE and LIVE crops - same end alignment. Rod appears seated flush on both crank pin and slider pin with no visible lift or mis-seating.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 9485.87,
+        "prompt_tokens": 2805,
+        "completion_tokens": 781,
+        "request_id": "chatcmpl-02a9e0f4a0454c51a7ea731b04c92d51"
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 303.7,
+      "stage2_elapsed_ms": 9486.6,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "f4c62aa6-6092-4e1a-a192-5baeb26f3659"
+    },
+    "total_ms": 9793.1
+  },
+  {
+    "run": 5,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 273.0,
+      "stage1_within_deadline": true,
+      "session_id": "abaf63cb-4d44-48a6-b7f3-784d78b9ff6d",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "f072904e-15e8-4ff5-9e67-20093e7ee9b1",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "abaf63cb-4d44-48a6-b7f3-784d78b9ff6d",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "f072904e-15e8-4ff5-9e67-20093e7ee9b1",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "unconfirmed",
+      "needs_review": false,
+      "reason_codes": [
+        "stage2_insufficient_evidence",
+        "stage2_timeout"
+      ],
+      "model_finding": null,
+      "model_reason": "",
+      "model_confidence": null,
+      "auditor": {
+        "model": null,
+        "measured": false,
+        "latency_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "request_id": ""
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 273.0,
+      "stage2_elapsed_ms": 15016.8,
+      "stage2_deadline_ms": 15000.0,
+      "gate_envelope_message_id": "038c0de8-9854-41a0-8ad4-e44830f02121"
+    },
+    "total_ms": 15291.6
+  }
+]

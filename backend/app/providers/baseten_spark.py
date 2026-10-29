@@ -4,7 +4,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Optional, Mapping, Sequence
 
 import httpx
 
@@ -175,7 +175,7 @@ class BasetenSparkClient:
         session_id: str,
         step_id: str,
         silhouette_iou: float,
-        witness_polarity_cosine: float,
+        witness_polarity_cosine: Optional[float],
         witness_error_px: float,
         glimmer_finding: str,
         mode: str = "fixture",
@@ -189,7 +189,7 @@ class BasetenSparkClient:
         t0 = time.perf_counter()
         triggered = bool(
             silhouette_iou >= 0.90
-            and (witness_polarity_cosine < 0.50 or witness_error_px > 6.0)
+            and (witness_polarity_cosine is None or witness_polarity_cosine < 0.50 or witness_error_px > 6.0)
         )
         if not triggered:
             return {
@@ -211,7 +211,7 @@ class BasetenSparkClient:
                     {
                         "step_id": step_id,
                         "silhouette_iou": round(float(silhouette_iou), 4),
-                        "witness_polarity_cosine": round(float(witness_polarity_cosine), 4),
+                        "witness_polarity_cosine": None if witness_polarity_cosine is None else round(float(witness_polarity_cosine), 4),
                         "witness_error_px": round(float(witness_error_px), 2),
                         "visual_auditor_finding": glimmer_finding,
                     }
@@ -257,7 +257,7 @@ class BasetenSparkClient:
             "visual_auditor_finding": glimmer_finding,
             "consensus": consensus,
             "explanation": str(parsed.get("reason", ""))[:500] or (
-                f"IoU={silhouette_iou:.3f}, witness cos={witness_polarity_cosine:+.3f}, err={witness_error_px:.1f}px."
+                f"IoU={silhouette_iou:.3f}, witness cos={"n/a" if witness_polarity_cosine is None else format(witness_polarity_cosine, "+.3f")}, err={witness_error_px:.1f}px."
             ),
             "latency_ms": float(summary_res.latency_ms) if measured else 0.0,
             "measured": measured,

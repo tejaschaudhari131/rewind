@@ -92,7 +92,7 @@ def build_six_model_proof_ledger(
     glimmer_finding: str = "consistent",
     glimmer_verdict: Optional[str] = None,
     witness_aligned: bool = True,
-    witness_polarity_cosine: float = 0.996,
+    witness_polarity_cosine: Optional[float] = None,
     mask_iou: float = 0.972,
     spark_open_triggered: bool = False,
     baseten_triggered: Optional[bool] = None,
@@ -153,7 +153,7 @@ def build_six_model_proof_ledger(
             purpose="CIE LAB witness-polarity cosine pre-check",
             status="DETERMINISTIC_LOCAL",
             latency_ms=0.0,
-            verdict_summary=f"witness_cos={witness_polarity_cosine:+.3f} (deterministic)",
+            verdict_summary=(f"witness_cos={witness_polarity_cosine:+.3f} (deterministic)" if witness_polarity_cosine is not None else "witness stripe not measurable (insufficient_evidence)"),
             measured=True,
         ),
         ModelCallReceipt(
@@ -177,7 +177,7 @@ def build_six_model_proof_ledger(
         "visual_auditor_finding": glimmer_finding,
         "baseten_spark_open_verdict": spark_open_verdict or ("NOT_CALLED" if not baseten_measured else ""),
         "silhouette_iou": round(float(mask_iou), 4),
-        "witness_polarity_cosine": round(float(witness_polarity_cosine), 4),
+        "witness_polarity_cosine": None if witness_polarity_cosine is None else round(float(witness_polarity_cosine), 4),
     }
     receipts.append(
         ModelCallReceipt(

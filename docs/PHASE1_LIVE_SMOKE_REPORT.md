@@ -282,4 +282,41 @@ Live SAM 3.1: 1.45–1.56 s, IoU 0.938 vs reference (fixture mode reports 0.972)
 - The arbiter (`arbitrate_ambiguous_checkpoint`) used to ignore the model and hard-code `MISMATCH`, used a leading prompt, ran in fixture mode even during live gates, cited "Modal H100 Glimmer 30B", and reported `latency 0.1/14.2 ms`. It now uses a neutral prompt, parses the model's verdict, treats unparseable output as `INSUFFICIENT_EVIDENCE`, receives the gate mode, and reports real latency, usage, and request ID (0 when not called). Its max_tokens was raised to 4096.
 - Regression tests: `tests/test_live_honesty_2026_10_29.py`.
 
-Still open: `geometry.py` overwrites a positive polarity cosine with the constant `-0.994` when witness error exceeds the threshold. It is local, but it is still a canned number.
+Previously open: `geometry.py` replaced the polarity cosine with the constant `-0.994`. Resolved in §9.
+
+
+## 9. Two-stage gate: live end-to-end (2026-10-29)
+
+Design (`backend/app/two_stage.py`):
+- **Stage 1** (deadline 2.8 s) runs live `sam-3.1` plus the deterministic local checks (silhouette IoU, CIE-LAB witness cosine, registration). It gives a provisional verdict (`provisional_accepted` / `provisional_rejected` / `unknown`). It never commits and is never final.
+- **Stage 2** (deadline 15 s, set with `REWIND_STAGE2_DEADLINE_MS`) runs the live Baseten `meta-models/muse-spark-open-1026` blinded vision audit. When the local lanes disagree, the Baseten consensus check runs alongside it. Stage 2 commits through the CAS token captured in stage 1.
+  - Confirmed accept only when stage 1 is `provisional_accepted` **and** the model says `consistent`.
+  - Model `mismatch` over a provisional accept gives `unknown` + needs review, showing the model's reason.
+  - Model `consistent` over a provisional reject or unknown gives `unknown` + needs review (never auto-accept).
+  - Timeout, error or unreadable output gives `unknown`.
+  - Registration lost gives a deterministic `rejected` with no model call.
+  - A reset, camera motion or newer observation makes the late result `discarded_stale`.
+- Pushed over `/ws/session` as `checkpoint_provisional`, then `checkpoint_stage2`. Can also be polled at `GET /api/checkpoint/stage2/{observation_id}`. Shown in the workbench by `TwoStageGatePanel`.
+- `geometry.py`: the constant `-0.994` is gone. The cosine is `null` with `witness_check_status="insufficient_evidence"` when the stripe can't be measured.
+
+Live runs (`mode="live"`; raw JSON in `docs/probes/two_stage_live_20261029.json`; times in ms):
+
+| Run | Fixture | SAM 3.1 | Stage-1 provisional | Stage-1 ms | Model finding | Model ms | Tokens in/out | Request ID | Consensus | Final | Stage-2 ms |
+| :-- | :-- | :-- | :-- | --: | :-- | --: | :-- | :-- | :-- | :-- | --: |
+| 0 | pass_step2 | live 610.5 ms | `provisional_accepted` | 1224 | — | 0 | 0/0 | — | not triggered | **unknown** (unconfirmed) | 15008 |
+| 0 | fail_flipped_rod | live 779.6 ms | `provisional_rejected` | 1236 | mismatch | 14024 | 2805/737 | `…d5df59e8` | MISMATCH | **rejected** (confirmed) | 14025 |
+| 1 | pass_step2 | failed (404 / no instance) | `unknown` | 481 | — | 0 | 0/0 | — | not triggered | **unknown** (unconfirmed) | 15017 |
+| 1 | fail_flipped_rod | failed (404 / no instance) | `unknown` | 386 | mismatch | 8477 | 2805/936 | `…4c029cbe` | TIMEOUT | **rejected** (confirmed) | 15009 |
+| 2 | pass_step2 | failed (404 / no instance) | `unknown` | 506 | — | 0 | 0/0 | — | not triggered | **unknown** (unconfirmed) | 15017 |
+| 2 | fail_flipped_rod | failed (404 / no instance) | `unknown` | 406 | — | 0 | 0/0 | — | MISMATCH | **unknown** (unconfirmed) | 15008 |
+| 3 | pass_step2 | failed (404 / no instance) | `unknown` | 822 | consistent | 9398 | 2805/876 | `…42f713f4` | not triggered | **unknown** (overridden, needs review) | 9400 |
+| 4 | pass_step2 | failed (404 / no instance) | `unknown` | 304 | consistent | 9486 | 2805/781 | `…04c92d51` | not triggered | **unknown** (overridden, needs review) | 9487 |
+| 5 | pass_step2 | failed (404 / no instance) | `unknown` | 273 | — | 0 | 0/0 | — | not triggered | **unknown** (unconfirmed) | 15017 |
+
+What these runs show:
+- Stage 1 always finished well inside 2.8 s (273–1,236 ms).
+- In 7 of 9 runs, the Meta `sam-3.1` endpoint returned HTTP 404 intermittently (seen directly by calling `segment_image` repeatedly). In those runs stage 1 correctly fell to `unknown`.
+- Baseten vision latency was 8.5–14 s. 4 of the 6 pass-fixture audits and 1 of the 3 flipped-rod audits went over the 15 s deadline and correctly stayed `unknown`. In the flipped-rod timeout, the consensus check alone said MISMATCH, but that is not enough to confirm.
+- flipped_rod: with live SAM, the model confirmed the provisional reject (`rejected`, confirmed, 14.0 s). When SAM failed, the model's `mismatch` still gave a confirmed `rejected`, because rejection is the safe side.
+- pass: in the one run with live SAM, the audit timed out, so we have **no confirmed live accept yet**. Whenever SAM failed, the model said `consistent` but the gate correctly would not auto-accept (`unknown`, needs review).
+- No result was ever accepted without both stages agreeing.

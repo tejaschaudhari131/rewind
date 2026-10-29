@@ -74,3 +74,13 @@
 - **Voiceover / Live Audio**:
   > *"From raw teardown video to blinded open-weight verification and computer-use-certified STEP CAD—REWIND gives physical hardware an undo button and a compiler."*
 - **Rubric / Bonus Locked**: **Potential Impact (25%)**
+
+
+---
+
+## Two-stage gate: what's on screen (updated 2026-10-29)
+
+- **Check-step press (0:42–1:15):** the `TWO-STAGE GATE` strip right away shows `Stage 1 PROVISIONAL_ACCEPTED (… ms · IoU … · witness cos …)` and then `Stage 2: waiting for Muse Spark vision audit…`. About 9–14 s later it shows `Stage 2 ACCEPTED [confirmed] · N ms · tokens · req …`. Narration: *"Local geometry gives an instant provisional answer. Nothing is final until the open-weight vision model independently agrees."*
+- **Flipped rod (1:15–1:58):** Stage 1 shows `PROVISIONAL_REJECTED` (witness cosine negative). Stage 2 shows `REJECTED [confirmed]` with the model's own sentence (e.g. "LIVE shows stripe at opposite slider end, indicating reversed installation").
+- **Honesty beat:** bump the camera or press reset while stage 2 is pending. The strip shows `Stage 2 result discarded (session reset / camera moved)`.
+- **Do not claim** stage 2 is sub-2.8 s. Measured Baseten latency is 8.5–14 s, and over 15 s the result stays `UNKNOWN`. If `sam-3.1` is returning 404s at recording time, stage 1 shows `UNKNOWN` and the final can only be needs-review or a rejection. Record takes until a live-SAM run is captured.

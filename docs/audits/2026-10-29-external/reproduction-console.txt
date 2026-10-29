@@ -1,0 +1,231 @@
+Starting offline probes
+Running glimmer_no_image
+Running glimmer_small_blank
+Running nested_blinding
+Running sam_empty_and_malformed
+Running sam_encodings_and_multiple
+Running flat_measurement
+Running step_tampering
+Running letter_print_scale
+Running late_provider
+Running empty_sam_gate
+Running movement_during_gate
+Running concurrent_gate
+Running reset_during_gate
+Running semantic_bypasses
+Running voice_and_step_specificity
+{
+  "glimmer_no_image": {
+    "output": {
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "finding": "consistent",
+      "observations": [
+        {
+          "frame_id": "00000000-0000-4000-8000-000000000010",
+          "region_xyxy_px": [
+            385,
+            280,
+            840,
+            336
+          ],
+          "statement": "Yellow connecting rod is seated flush on crank and wrist pins with black/white witness stripe aligned to WITNESS REF."
+        }
+      ],
+      "contradicted_predicate_ids": [],
+      "requires_new_view": false
+    },
+    "verdict": {
+      "verdict": "pass",
+      "confidence": 0.94,
+      "observed_part_id": "connecting-rod",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "failure_mode": null,
+      "notes": "Yellow connecting rod is seated flush on crank and wrist pins with black/white witness stripe aligned to WITNESS REF."
+    }
+  },
+  "glimmer_small_blank": {
+    "output": {
+      "observation_id": "00000000-0000-4000-8000-000000000002",
+      "finding": "consistent",
+      "observations": [
+        {
+          "frame_id": "00000000-0000-4000-8000-000000000010",
+          "region_xyxy_px": [
+            385,
+            280,
+            840,
+            336
+          ],
+          "statement": "Yellow connecting rod is seated flush on crank and wrist pins with black/white witness stripe aligned to WITNESS REF."
+        }
+      ],
+      "contradicted_predicate_ids": [],
+      "requires_new_view": false
+    },
+    "verdict": {
+      "verdict": "pass",
+      "confidence": 0.94,
+      "observed_part_id": "connecting-rod",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "failure_mode": null,
+      "notes": "Yellow connecting rod is seated flush on crank and wrist pins with black/white witness stripe aligned to WITNESS REF."
+    }
+  },
+  "nested_blinding": {
+    "accepted_context": {
+      "metadata": {
+        "geometry": {
+          "decision": "accepted",
+          "iou": 1.0
+        }
+      },
+      "filename": "checkpoint_fail_flipped_rod.png"
+    }
+  },
+  "sam_empty_and_malformed": {
+    "''": 0,
+    "'<0f>'": 0,
+    "'<0f>garbage'": 0
+  },
+  "sam_encodings_and_multiple": {
+    "lossless_instances": 1,
+    "multiple_track_ids": [
+      "0",
+      "2"
+    ],
+    "one_bit_instances": 1,
+    "one_bit_area": 3,
+    "absent_confidence_becomes": 1.0
+  },
+  "flat_measurement": {
+    "template_id": "flat_two_hole_link_v1",
+    "unit": "mm",
+    "coordinate_frame": "calibrated_plane",
+    "plane_id": "mat_z0",
+    "flat_contact_confirmed": true,
+    "px_per_mm": 4.0,
+    "hole_center_distance": 150.0,
+    "outer_width": 25.0,
+    "hole_diameter_a": 7.97,
+    "hole_diameter_b": 8.0,
+    "end_radius_a": 12.5,
+    "end_radius_b": 12.5,
+    "overall_length": 174.75,
+    "thickness": 4.0,
+    "pin_diameter": 7.98,
+    "diametral_clearance": 0.4,
+    "independent_center_distance_check": 149.75,
+    "uncertainty_95_mm": 0.25,
+    "registration_rmse_px": 0.3915,
+    "hole_a_center_mm": [
+      125.053,
+      195.115
+    ],
+    "hole_b_center_mm": [
+      275.057,
+      195.088
+    ],
+    "status": "eligible_for_cad"
+  },
+  "step_tampering": {
+    "original_status": "geometry_valid",
+    "removed_faces": 1920,
+    "after_all_faces_removed": "geometry_valid"
+  },
+  "letter_print_scale": [
+    {
+      "printed_width_mm": 171.6,
+      "printed_height_mm": 195.0,
+      "source_size_px": [
+        1760,
+        2000
+      ],
+      "vertical_scale": 0.78,
+      "tag_side_mm": 28.08
+    },
+    {
+      "printed_width_mm": 171.6,
+      "printed_height_mm": 195.0,
+      "source_size_px": [
+        1760,
+        2000
+      ],
+      "vertical_scale": 0.78,
+      "tag_side_mm": 28.08
+    }
+  ],
+  "late_provider": {
+    "wall_ms": 3691.35,
+    "reported_ms": 2420.0,
+    "decision": "accepted"
+  },
+  "empty_sam_gate": {
+    "decision": "accepted",
+    "objects": [],
+    "mask_iou": 0.9722
+  },
+  "movement_during_gate": {
+    "decision": "accepted",
+    "state": "ACCEPTED",
+    "motion_score": 100.0,
+    "scene_version": 1
+  },
+  "concurrent_gate": {
+    "outcomes": [
+      {
+        "error": "[CAS_MISMATCH] Atomic CAS rejected stale gate commit (1, 1, 'attach-connecting-rod', '325b324c-f4ba-44c1-bd29-37b115627639') != active (1, 1, 'attach-connecting-rod', '9efcfe97-cbf2-48bb-89d0-310fcce63b25')."
+      },
+      {
+        "decision": "accepted"
+      }
+    ],
+    "completed_steps": [
+      "mount-base-and-guide",
+      "attach-connecting-rod"
+    ]
+  },
+  "reset_during_gate": {
+    "old_session_id": "00000000-0000-4000-8000-000000000001",
+    "new_session_id": "00000000-0000-4000-8000-000000000001",
+    "returned_decision": "accepted",
+    "old_state": "ACCEPTED",
+    "new_state": "MOVING",
+    "events": [
+      {
+        "type": "session_reset",
+        "decision": null,
+        "state": "MOVING"
+      },
+      {
+        "type": "checkpoint_verified",
+        "decision": "accepted",
+        "state": null
+      }
+    ]
+  },
+  "semantic_bypasses": {
+    "gate_without_other_stages": "accepted_by_validator",
+    "mismatched_session_and_hashes": "accepted_by_validator",
+    "consistent_but_requires_new_view": "accepted_by_validator",
+    "commit_without_capture": "ACCEPTED"
+  },
+  "voice_and_step_specificity": {
+    "repeated_same_golden_frame": [
+      {
+        "checked_step": "attach-connecting-rod",
+        "decision": "accepted"
+      },
+      {
+        "checked_step": "attach-output-paddle",
+        "decision": "accepted"
+      },
+      {
+        "checked_step": "scan-flat-link",
+        "decision": "accepted"
+      }
+    ],
+    "live_wav_error": "'MetaVoiceClient' object has no attribute 'transcribe_wav_file'"
+  }
+}

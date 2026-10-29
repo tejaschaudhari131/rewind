@@ -1,6 +1,8 @@
 # REWIND — Plane-Aware 2.5D Physical Teardown, Sub-2.8s Reassembly Verification & Parametric CAD Link Regeneration on the Meta Model Stack
 
-> **Watch a mechanism come apart. REWIND checks the rebuild in under 2.8 seconds and recreates a missing flat mechanical link (`flat_two_hole_link_v1`) as watertight `.STEP` and `.STL` CAD from calibrated millimeter evidence.**
+> **Watch a mechanism come apart. REWIND checks the rebuild in under 2.8 seconds and recreates a missing flat mechanical link (`flat_two_hole_link_v1`) as a watertight `.STL` plus a faceted, mesh-derived `.STEP` from mat-plane millimeter estimates.**
+
+> **Honesty note (external audit 2026-10-29):** camera calibration is currently **unvalidated** (placeholder intrinsics/distortion, no holdout set), so no fabrication tolerance (e.g. ±0.25 mm) is established. Mat-plane measurements are only valid for parts lying flush on `z = 0`; raised features are subject to parallax (see `backend/app/projection.py`). The `.STEP` is a FACETED_BREP derived from the mesh, not an analytic CadQuery solid. See `docs/audits/2026-10-29-external/RESPONSE.md`.
 
 Built for the **Meta Global AI Developer Hackathon (2026)** across the **Indie Track** plus the **Open Weight ($10K)**, **Agentic ($5K)**, and **Creative ($5K)** bonus tracks.
 
@@ -20,11 +22,11 @@ Built for the **Meta Global AI Developer Hackathon (2026)** across the **Indie T
 
 When technicians, robotics engineers, or field operators disassemble a mechanical linkage without service drawings, two failure modes dominate:
 1. **Silent Reassembly Errors**: A symmetric-looking link (`connecting_rod`) is reinstalled **180° flipped** or only partially seated on its shoulder pin. Pure bounding-box or mask-IoU checks pass (`IoU = 0.9722`), causing mechanism binding or jam under load.
-2. **Broken or Missing Flat Links**: A flat connecting rod is cracked or missing. Uncalibrated monocular depth guesses fail fabrication tolerances (`±0.25 mm`).
+2. **Broken or Missing Flat Links**: A flat connecting rod is cracked or missing. Uncalibrated monocular depth guesses cannot support fabrication tolerances.
 
 **REWIND** solves both problems through a **strict single-writer contract (`CONTRACT.md`)**, **plane-aware 2.5D metrology**, and a **multi-model Meta AI + Open-Weight Muse architecture**:
 - **Elevated Assembly Checks (`unit: "px"`, `camera_undistorted_px`)**: Never hallucinate millimeters on elevated links (`z > 0`) due to perspective parallax. Elevated checkpoints evaluate `sam-3.1` full-frame segmentation masks (`mask_iou >= 0.82`), directional witness stripe alignment (`witness_error_px <= 6.0 px`), and pivot seating (`pivot_error_px <= 4.0 px`) in parallel with a **blinded `Muse Glimmer 30B` visual audit** inside a **2.8-second hard gate**.
-- **Calibrated `mat_z0` Flat-Link Metrology (`unit: "mm"`, `plane_id: "mat_z0"`)**: When a flat link is placed flush on the `400 × 250 mm` `APRILTAG_36h11` calibration mat (`z = 0`), REWIND rectifies the contour via the planar homography $H_{\text{undistorted\_px}\to\text{mat\_z0\_mm}}$, extracts `hole_center_distance = 150.01 mm`, `outer_width = 25.00 mm`, and bore diameters (`7.97 / 8.00 mm`), and drives a deterministic CadQuery/trimesh CAD worker (`flat_two_hole_link_v1`) to export watertight **ISO-10303-21 `.STEP`**, **`.STL`**, and **2D orthographic engineering drawings** (`max dimensional error = 0.00003 mm <= 0.10 mm`).
+- **Calibrated `mat_z0` Flat-Link Metrology (`unit: "mm"`, `plane_id: "mat_z0"`)**: When a flat link is placed flush on the `400 × 250 mm` `APRILTAG_36h11` calibration mat (`z = 0`), REWIND rectifies the contour via the planar homography $H_{\text{undistorted\_px}\to\text{mat\_z0\_mm}}$, extracts `hole_center_distance = 150.01 mm`, `outer_width = 25.00 mm`, and bore diameters (`7.97 / 8.00 mm`), and drives a deterministic trimesh CAD worker (`flat_two_hole_link_v1`) to export a watertight **`.STL`**, a **faceted mesh-derived ISO-10303-21 `.STEP`** (topology-checked: closed shell, every face on its PLANE, face count = triangle count), and **2D orthographic drawings**. The `0.00003 mm` figure is model-vs-intended-dimension self-consistency, *not* measurement accuracy; the calibration is unvalidated.
 
 ---
 
@@ -54,13 +56,14 @@ REWIND never fabricates token counts, request IDs, or model latencies. Every rec
 | :--- | :--- | :--- | :--- |
 | **`APRILTAG_36h11` Homography & `mat_z0` Metrology** | OpenCV ArUco + CLAHE + planar homography (`4.0 px/mm`) | Same deterministic code | **Deterministic OpenCV (not a model)** |
 | **CIE LAB Witness-Polarity Pre-Check** | `_extract_witness_centroid_lab()` cosine (`+0.996` pass / `-0.994` flipped) | Same deterministic code | **Deterministic OpenCV pre-check (`DETERMINISTIC_LOCAL`, never presented as a model)** |
-| **Parametric `.STEP` / `.STL` CAD Worker** | CadQuery + trimesh (`flat_two_hole_link_v1`) | Same deterministic code | **Deterministic CAD geometry** |
+| **Parametric `.STEP` / `.STL` CAD Worker** | trimesh mesh + faceted mesh-derived STEP with topology verifier (`flat_two_hole_link_v1`) | Same deterministic code | **Deterministic CAD geometry (faceted, not analytic B-rep)** |
+| **Camera calibration** | Placeholder K/distortion, envelope status `unvalidated` | Same | **Unvalidated — no tolerance claim** |
 | **Segmentation (`sam-3.1`)** | Live `POST https://api.meta.ai/v1/responses` + base85 RLE decode (`~816–1089 ms` measured in Phase 1) | Local HSV/contour mask fixture (`NOT_MEASURED`) | **Live Meta Model API** |
-| **Blinded Visual Witness/Seating Audit** | `BasetenVisionAuditor` -> live Baseten `meta-models/muse-spark-open-1026` (`image_url` base64, `max_tokens=2048`, `<think>` stripped, real `usage` tokens recorded), with automatic fallback to Meta `muse-spark-1.3-contributor` vision if multimodal input is rejected | `modal_app/glimmer_server.py` OpenCV/LAB heuristic (`usage: null`, `engine: "deterministic-opencv-lab-heuristic"`, labeled `NOT_MEASURED`) | **Live Baseten / Meta Vision in `live`; deterministic heuristic in `fixture` (Modal H100 vLLM deploy blocked only by workspace billing card gate)** |
+| **Blinded Visual Witness/Seating Audit** | `BasetenVisionAuditor` -> live Baseten `meta-models/muse-spark-open-1026` (`image_url` base64, `max_tokens=2048`, `<think>` stripped, real `usage` tokens recorded), with automatic fallback to Meta `muse-spark-1.3-contributor` vision if multimodal input is rejected | `modal_app/glimmer_server.py` OpenCV/LAB heuristic (`usage: null`, labeled `NOT_MEASURED`); fails closed (unknown) on missing/blank/undecodable images. Real Glimmer 30B inference is **not** deployed | **Live Baseten / Meta Vision in `live`; deterministic heuristic in `fixture` (Modal H100 vLLM deploy blocked only by workspace billing card gate)** |
 | **Open-Weight Conflict Arbiter** | Live Baseten `meta-models/muse-spark-open-1026` (`POST https://inference.baseten.co/v1/chat/completions`, measured `3,610 ms`, `prompt_tokens=287`, `completion_tokens=800`, req `54ca701a184499b9f75bfa559080e6c99749e`) | Deterministic rule when `IoU >= 0.90` & witness fails (`NOT_MEASURED`) | **Live Baseten Open-Weight (`BASETEN_OPEN_WEIGHT`)** |
 | **Reverse DAG & Planner (`muse-spark-1.3-contributor`)** | Live `POST https://api.meta.ai/v1/responses` (`1,501 ms`, `input_tokens=380`, `output_tokens=549`) | Cached schema-valid fixture (`NOT_MEASURED`) | **Live Meta Model API** |
-| **CAD Drawing CUA (`muse-wonder-1.0`)** | `MetaWonderClient.run_cua_step()` sends `tools: [{"type": "computer"}]` to Meta `/v1/responses` when `mode="live"` | Deterministic UI cursor overlay at `(600, 420)` labeled `status: "fixture_overlay", measured: false` | **Live request payload in `live`; honest UI overlay in `fixture`** |
-| **Voice Command (`muse-voice-transcribe-1.0`)** | Live `wss://api.meta.ai/v1/asr/realtime` (`1,626 ms` E2E on `check_step_24khz.wav`) | Browser Web Speech / button trigger (`NOT_MEASURED`) | **Live Meta Realtime ASR** |
+| **CAD Drawing CUA (`muse-wonder-1.0`)** | `MetaWonderClient.run_cua_step()` sends `tools: [{"type": "computer"}]` to Meta `/v1/responses` when `mode="live"` | Deterministic UI cursor overlay labeled `measured: false` | **Live request payload only; status `cua_actions_returned`/`no_cua_actions`, `measured: false` — actions are not executed or verified** |
+| **Voice Command (`muse-voice-transcribe-1.0`)** | Live `wss://api.meta.ai/v1/asr/realtime` (`1,626 ms` E2E on `check_step_24khz.wav`) | Browser Web Speech / button trigger (`NOT_MEASURED`) | **Live Meta Realtime ASR; negated commands rejected; voice `check_step` never fabricates a pass without a live frame** |
 | **Visual Repair Card (`muse-image-1.0`)** | Live `POST https://api.meta.ai/v1/images/edits` (`6,648 ms`) | Pre-rendered `repair_card_step2.png` (`NOT_MEASURED`) | **Live Meta Image Edit API** |
 
 ---
@@ -79,7 +82,7 @@ REWIND never fabricates token counts, request IDs, or model latencies. Every rec
 ![Orthographic CAD Drawing — flat_two_hole_link_v1](fixtures/cad_outputs/flat_two_hole_link_v1_drawing.png)
 
 When the removed connecting rod is placed flat on `mat_z0`, REWIND computes the homography $H_{\text{img}\to\text{mat}}$ (`4.0 px/mm`), extracts the outer capsule contour and inner bores, combines them with operator-supplied thickness (`4.00 mm`), pin diameter (`6.35 mm`), and clearance (`0.25 mm`), and generates:
-- `fixtures/cad_outputs/flat_two_hole_link_v1.step` (ISO-10303-21 AP214 solid model)
+- `fixtures/cad_outputs/flat_two_hole_link_v1.step` (ISO-10303-21 faceted, mesh-derived FACETED_BREP)
 - `fixtures/cad_outputs/flat_two_hole_link_v1.stl` (watertight triangle mesh, verified volume `16,561.99 mm³`)
 - `fixtures/cad_outputs/flat_two_hole_link_v1_drawing.svg` & `.png` (dimensioned 2D engineering drawing)
 
@@ -137,7 +140,7 @@ rewind/
 ├── docs/
 │   ├── PHASE1_LIVE_SMOKE_REPORT.md    # Live Meta Model API latencies, token grammar & wire traces
 │   └── screenshots/                   # Full HD workbench screenshots
-└── tests/                             # 35 unit, contract, pipeline, UI, and live Meta API smoke tests
+└── tests/                             # 95 unit, contract, pipeline, UI, and live Meta API smoke tests
 ```
 
 ---
@@ -152,7 +155,7 @@ cp .env.example .env
 # Add your META_API_KEY from https://dev.meta.ai to .env
 ```
 
-### 2. Run the Full 35-Test Suite (Offline + Live Meta API Smoke Tests)
+### 2. Run the Full 95-Test Suite (Offline + Live Meta API Smoke Tests)
 ```bash
 pytest -v
 ```

@@ -1,0 +1,6 @@
+{
+  "synthetic_projection_max_abs_mm": 3.637978807091713e-12,
+  "deadline_fast": "complete",
+  "deadline_slow": "unknown_timeout",
+  "cadquery": "not executed; kernel unavailable"
+}

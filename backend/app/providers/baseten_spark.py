@@ -112,7 +112,7 @@ class BasetenSparkClient:
             payload = {
                 "model": self.cfg.baseten_spark_model,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 2048,
+                "max_tokens": 4096,  # reasoning model: 2048 was observed to truncate before JSON
                 "temperature": 0.1,
             }
             async with httpx.AsyncClient(timeout=timeout_s, trust_env=False) as client:
@@ -194,65 +194,73 @@ class BasetenSparkClient:
         if not triggered:
             return {
                 "triggered": False,
-                "provider": "baseten",
+                "provider": "not_called",
                 "model": self.cfg.baseten_spark_model,
-                "verdict": "CONSISTENT",
-                "baseten_verdict": "CONSISTENT",
+                "verdict": "NOT_CALLED",
+                "baseten_verdict": "NOT_CALLED",
                 "consensus": "PASS_NO_CONFLICT",
-                "latency_ms": 0.1,
+                "latency_ms": 0.0,
+                "measured": False,
             }
 
         if mode in ("live", "hybrid") and self.baseten_api_key:
+            # Neutral question: the model is NOT told which answer to give (no leading JSON template).
             summary_res = await self.summarize_session(
                 session_id=session_id,
                 gate_events=[
                     {
                         "step_id": step_id,
-                        "decision": "rejected",
                         "silhouette_iou": round(float(silhouette_iou), 4),
                         "witness_polarity_cosine": round(float(witness_polarity_cosine), 4),
                         "witness_error_px": round(float(witness_error_px), 2),
-                        "glimmer_finding": glimmer_finding,
+                        "visual_auditor_finding": glimmer_finding,
                     }
                 ],
                 question=(
-                    "High silhouette IoU (>=0.90) conflicts with inverted witness stripe polarity. "
-                    "Confirm whether the asymmetrical connecting rod is flipped 180 degrees and return JSON "
-                    '{"verdict": "MISMATCH", "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG"}.'
+                    "An asymmetric connecting rod was checked. Given these measurements (silhouette IoU vs reference, "
+                    "cosine of the witness-stripe polarity vector vs reference where +1 = same orientation and -1 = "
+                    "reversed, witness position error in px) and the independent visual auditor finding, decide whether "
+                    "the rod is installed in the reference orientation. Return ONLY JSON "
+                    '{"verdict": "CONSISTENT"|"MISMATCH"|"INSUFFICIENT_EVIDENCE", "failure_signature": str, "reason": str}.'
                 ),
                 use_remote_fallback=(mode == "live"),
             )
+            parsed = (summary_res.digest or {}).get("parsed_json") or {}
+            measured = bool((summary_res.digest or {}).get("measured"))
+            provider = "BASETEN_OPEN_WEIGHT" if summary_res.provider == "baseten" else summary_res.provider
         else:
+            parsed = {"verdict": "MISMATCH", "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG"}
             summary_res = SessionSummaryResult(
-                provider="local-deterministic-fallback",
-                model=self.cfg.baseten_spark_model,
-                summary=(
-                    '{"verdict": "MISMATCH", "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG", '
-                    '"corrective_action": "rotate_connecting_rod_180_deg_to_align_witness_stripe"}'
-                ),
-                digest={
-                    "parsed_json": {
-                        "verdict": "MISMATCH",
-                        "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG",
-                    }
-                },
-                latency_ms=14.2,
+                provider="local-deterministic-fallback", model=self.cfg.baseten_spark_model,
+                summary="fixture mode: deterministic rule (no model call)", digest={}, latency_ms=0.0,
             )
-        elapsed = round((time.perf_counter() - t0) * 1000.0, 2) or summary_res.latency_ms
+            measured = False
+            provider = "LOCAL_DETERMINISTIC_FIXTURE"
+        verdict = str(parsed.get("verdict", "")).upper()
+        if verdict not in ("CONSISTENT", "MISMATCH", "INSUFFICIENT_EVIDENCE"):
+            verdict = "INSUFFICIENT_EVIDENCE"  # fail closed on unparseable output
+        auditor_mismatch = "mismatch" in str(glimmer_finding).lower()
+        if verdict == "MISMATCH" and auditor_mismatch:
+            consensus = "DUAL_OPEN_WEIGHT_REJECT_180_FLIP" if measured or provider == "LOCAL_DETERMINISTIC_FIXTURE" else "REJECT"
+        elif verdict == "MISMATCH" or auditor_mismatch:
+            consensus = "REJECT_PARTIAL_AGREEMENT"
+        else:
+            consensus = "NO_CONSENSUS_FAIL_CLOSED"
+        digest = summary_res.digest or {}
         return {
             "triggered": True,
-            "provider": "BASETEN_OPEN_WEIGHT",
+            "provider": provider,
             "model": self.cfg.baseten_spark_model,
-            "verdict": "MISMATCH",
-            "baseten_verdict": "MISMATCH (WITNESS_INVERTED_180)",
-            "failure_signature": "ASYMMETRIC_ROD_INVERTED_180_DEG",
-            "modal_glimmer_30b_finding": glimmer_finding,
-            "baseten_spark_open_finding": "mismatch",
-            "consensus": "DUAL_OPEN_WEIGHT_REJECT_180_FLIP",
-            "explanation": (
-                f"Dual Open-Weight Consensus (Modal H100 Muse Glimmer 30B + Baseten {self.cfg.baseten_spark_model}): "
-                f"Outer silhouette overlaps (IoU={silhouette_iou:.3f}), but CIE LAB witness-polarity vector is inverted "
-                f"(cos={witness_polarity_cosine:+.3f}, err={witness_error_px:.1f}px). Rotate connecting rod 180° in-plane."
+            "verdict": verdict,
+            "baseten_verdict": verdict,
+            "failure_signature": str(parsed.get("failure_signature", "")),
+            "visual_auditor_finding": glimmer_finding,
+            "consensus": consensus,
+            "explanation": str(parsed.get("reason", ""))[:500] or (
+                f"IoU={silhouette_iou:.3f}, witness cos={witness_polarity_cosine:+.3f}, err={witness_error_px:.1f}px."
             ),
-            "latency_ms": elapsed,
+            "latency_ms": float(summary_res.latency_ms) if measured else 0.0,
+            "measured": measured,
+            "usage": digest.get("usage") or {},
+            "request_id": digest.get("request_id", ""),
         }

@@ -618,6 +618,7 @@ async def run_checkpoint_gate(
         witness_polarity_cosine=geom_metrics.witness_polarity_cosine,
         witness_error_px=geom_metrics.witness_error_px,
         glimmer_finding=glimmer_finding,
+        mode=mode,
     )
 
     first_inst = sam_result.instances[0] if sam_result.instances else None
@@ -638,7 +639,13 @@ async def run_checkpoint_gate(
         glimmer_verdict=glimmer_finding,
         baseten_triggered=bool(baseten_consensus.get("triggered", False)),
         baseten_latency_ms=round(float(baseten_consensus.get("latency_ms", 0.0)), 1),
-        baseten_verdict=str(baseten_consensus.get("baseten_verdict", "STANDBY_PASS")),
+        baseten_verdict=str(baseten_consensus.get("baseten_verdict", "NOT_CALLED")),
+        baseten_measured=bool(baseten_consensus.get("measured", False)),
+        baseten_usage=baseten_consensus.get("usage") or None,
+        baseten_request_id=str(baseten_consensus.get("request_id", "")),
+        mask_iou=float(geom_metrics.mask_iou),
+        witness_polarity_cosine=float(geom_metrics.witness_polarity_cosine),
+        witness_aligned=bool(witness_aligned),
         include_repair_image=(decision != "accepted"),
         repair_image_status="ASYNC_PENDING" if decision != "accepted" else "LIVE_API",
         voice_transcript="check step",

@@ -1,0 +1,242 @@
+[
+  {
+    "case": "pass",
+    "mode": "full",
+    "run": 1,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 9192.64,
+    "prompt_tokens": 2805,
+    "completion_tokens": 1041,
+    "total_tokens": 3846,
+    "request_id": "chatcmpl-d3d07c82015d40258dc734f20f95a263",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the same (crank/left) end in both REFERENCE and LIVE crops, and the yellow connecting rod appears fully seated flush on both the crank pin and slider pin with no lift or offset."
+    }
+  },
+  {
+    "case": "pass",
+    "mode": "full",
+    "run": 2,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 7744.51,
+    "prompt_tokens": 2805,
+    "completion_tokens": 911,
+    "total_tokens": 3716,
+    "request_id": "chatcmpl-0664ac39c6904a2ab3583a13b46f9930",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the crank (left) end in both REFERENCE and LIVE crops - same end alignment. Rod appears seated flush on both crank and slider pins with no visible lift, offset, or mis-seating."
+    }
+  },
+  {
+    "case": "pass",
+    "mode": "full",
+    "run": 3,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 9324.12,
+    "prompt_tokens": 2805,
+    "completion_tokens": 850,
+    "total_tokens": 3655,
+    "request_id": "chatcmpl-ee1a173ebed548cf8b675ac75d3d562a",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the same (left/crank) end in REFERENCE and LIVE; rod appears fully seated flush on both crank and slider pins with no lift or misalignment."
+    }
+  },
+  {
+    "case": "pass",
+    "mode": "crop",
+    "run": 1,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 5905.43,
+    "prompt_tokens": 475,
+    "completion_tokens": 810,
+    "total_tokens": 1285,
+    "request_id": "chatcmpl-4c0dc6f9d3f541af83fe6f84fece9851",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the same (left) end in REFERENCE and LIVE crops; rod appears seated flush on both pins with no visible offset or lift."
+    }
+  },
+  {
+    "case": "pass",
+    "mode": "crop",
+    "run": 2,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 10946.28,
+    "prompt_tokens": 475,
+    "completion_tokens": 744,
+    "total_tokens": 1219,
+    "request_id": "chatcmpl-f2f48e45cd034f09b03a0d2589e89acf",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the same (left/crank) end in both REFERENCE and LIVE crops and the rod appears fully seated flush on both pins with no visible offset or lift."
+    }
+  },
+  {
+    "case": "pass",
+    "mode": "crop",
+    "run": 3,
+    "expected": "consistent",
+    "finding": "consistent",
+    "correct": true,
+    "latency_ms": 5289.03,
+    "prompt_tokens": 475,
+    "completion_tokens": 894,
+    "total_tokens": 1369,
+    "request_id": "chatcmpl-c73390d2c6a24f93bc8926eb3ff4670f",
+    "raw_verdict": {
+      "finding": "consistent",
+      "witness_mark_aligned": true,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "Witness stripe is at the same left/crank end in both REFERENCE and LIVE crops and the rod appears seated flush on both pins with no visible offset or lift."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "full",
+    "run": 1,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 10468.11,
+    "prompt_tokens": 2805,
+    "completion_tokens": 1006,
+    "total_tokens": 3811,
+    "request_id": "chatcmpl-e147120b320445d0b7f67610ad7d71ec",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "REFERENCE shows witness stripe at crank (left) end; LIVE shows stripe at slider (right) end - opposite end, rod is reversed. Rod appears seated on both pins in both crops with no visible lift."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "full",
+    "run": 2,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 8220.91,
+    "prompt_tokens": 2805,
+    "completion_tokens": 929,
+    "total_tokens": 3734,
+    "request_id": "chatcmpl-c65b24c68ccd4e7d98e65e9ae65a96e5",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "REFERENCE shows witness stripe at crank (left) end near red wheel; LIVE shows stripe at slider (right) end near blue block - rod is reversed end-for-end. Rod appears seated on both pins in both images."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "full",
+    "run": 3,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 8180.42,
+    "prompt_tokens": 2805,
+    "completion_tokens": 714,
+    "total_tokens": 3519,
+    "request_id": "chatcmpl-5443e9abde8a4dffadb4fedbe4ed5ea0",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "REFERENCE shows witness stripe at crank (left) end; LIVE shows stripe at slider (right) end - orientation reversed. Rod appears seated on both pins in both crops, but witness mark is not at same end."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "crop",
+    "run": 1,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 7491.14,
+    "prompt_tokens": 475,
+    "completion_tokens": 1270,
+    "total_tokens": 1745,
+    "request_id": "chatcmpl-910b2fb1df154206b3bb175180bd284b",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "REFERENCE witness stripe is at the left end (red side, teal circle); LIVE witness stripe is at the opposite right end (blue side, red circle), indicating a 180-degree inversion. Rod appears seated flush on both pins in both crops with pins centered in holes."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "crop",
+    "run": 2,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 6643.92,
+    "prompt_tokens": 475,
+    "completion_tokens": 1292,
+    "total_tokens": 1767,
+    "request_id": "chatcmpl-7e474ae97a2a4970bec55204b8cab438",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.98,
+      "statement": "REFERENCE witness stripe is at left end (red side); LIVE stripe is at right end (blue side) - 180 deg inversion. Rod appears seated on both pins with no visible lift/gap."
+    }
+  },
+  {
+    "case": "fail_flipped_rod",
+    "mode": "crop",
+    "run": 3,
+    "expected": "mismatch",
+    "finding": "mismatch",
+    "correct": true,
+    "latency_ms": 5914.84,
+    "prompt_tokens": 475,
+    "completion_tokens": 1141,
+    "total_tokens": 1616,
+    "request_id": "chatcmpl-d0f706fea81e41e7b8f4f7067af16997",
+    "raw_verdict": {
+      "finding": "mismatch",
+      "witness_mark_aligned": false,
+      "seating_flush": true,
+      "confidence": 0.99,
+      "statement": "LIVE witness stripe is at the right end while REFERENCE is at the left end (180 deg inversion); rod remains seated flush on both pins."
+    }
+  }
+]

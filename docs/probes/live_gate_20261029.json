@@ -1,0 +1,154 @@
+{
+  "checkpoint_pass_step2.png|None": {
+    "decision": "unknown",
+    "reasons": [
+      "UNKNOWN_TIMEOUT"
+    ],
+    "elapsed_ms": 2862.74,
+    "auditor": "fail",
+    "all_live_verified": false,
+    "invoked_lanes_live_verified": false,
+    "provider_completion": "unknown_timeout",
+    "consensus": {
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "baseten_spark_open_verdict": "NOT_CALLED"
+    },
+    "receipts": [
+      [
+        "opencv-lab-witness-precheck",
+        "DETERMINISTIC_LOCAL",
+        0.0,
+        0,
+        0,
+        ""
+      ]
+    ]
+  },
+  "checkpoint_pass_step2.png|30000": {
+    "decision": "unknown",
+    "reasons": [
+      "UNKNOWN_TIMEOUT"
+    ],
+    "elapsed_ms": 9183.98,
+    "auditor": "pass",
+    "all_live_verified": false,
+    "invoked_lanes_live_verified": true,
+    "provider_completion": "complete",
+    "consensus": {
+      "silhouette_iou": 0.9377,
+      "witness_polarity_cosine": 1.0,
+      "baseten_spark_open_verdict": "NOT_CALLED"
+    },
+    "receipts": [
+      [
+        "sam-3.1",
+        "LIVE_API",
+        1563.1,
+        0,
+        0,
+        ""
+      ],
+      [
+        "opencv-lab-witness-precheck",
+        "DETERMINISTIC_LOCAL",
+        0.0,
+        0,
+        0,
+        ""
+      ],
+      [
+        "meta-models/muse-spark-open-1026",
+        "BASETEN_OPEN_WEIGHT",
+        8963.4,
+        2805,
+        930,
+        "chatcmpl-a051fb1b1ea84550866023952c26b06c"
+      ]
+    ]
+  },
+  "checkpoint_fail_flipped_rod.png|None": {
+    "decision": "unknown",
+    "reasons": [
+      "UNKNOWN_TIMEOUT"
+    ],
+    "elapsed_ms": 2921.95,
+    "auditor": "fail",
+    "all_live_verified": false,
+    "invoked_lanes_live_verified": true,
+    "provider_completion": "unknown_timeout",
+    "consensus": {
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": -1.0,
+      "baseten_spark_open_verdict": "INSUFFICIENT_EVIDENCE"
+    },
+    "receipts": [
+      [
+        "opencv-lab-witness-precheck",
+        "DETERMINISTIC_LOCAL",
+        0.0,
+        0,
+        0,
+        ""
+      ],
+      [
+        "meta-models/muse-spark-open-1026",
+        "BASETEN_OPEN_WEIGHT",
+        8407.0,
+        347,
+        2048,
+        "chatcmpl-b56b3a445ec7414f9984d2aa7be6737d"
+      ]
+    ]
+  },
+  "checkpoint_fail_flipped_rod.png|30000": {
+    "decision": "unknown",
+    "reasons": [
+      "UNKNOWN_TIMEOUT"
+    ],
+    "elapsed_ms": 8300.18,
+    "auditor": "fail",
+    "all_live_verified": false,
+    "invoked_lanes_live_verified": true,
+    "provider_completion": "complete",
+    "consensus": {
+      "silhouette_iou": 0.9384,
+      "witness_polarity_cosine": -0.9999,
+      "baseten_spark_open_verdict": "MISMATCH"
+    },
+    "receipts": [
+      [
+        "sam-3.1",
+        "LIVE_API",
+        1452.8,
+        0,
+        0,
+        ""
+      ],
+      [
+        "opencv-lab-witness-precheck",
+        "DETERMINISTIC_LOCAL",
+        0.0,
+        0,
+        0,
+        ""
+      ],
+      [
+        "meta-models/muse-spark-open-1026",
+        "BASETEN_OPEN_WEIGHT",
+        8003.8,
+        2805,
+        937,
+        "chatcmpl-b7232845e982497794db70fb57ee52e9"
+      ],
+      [
+        "meta-models/muse-spark-open-1026",
+        "BASETEN_OPEN_WEIGHT",
+        4692.5,
+        346,
+        1106,
+        "chatcmpl-8d341b1c0ed24e6080132cb6c5be27dc"
+      ]
+    ]
+  }
+}

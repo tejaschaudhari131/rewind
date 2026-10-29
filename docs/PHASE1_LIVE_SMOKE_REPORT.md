@@ -242,3 +242,44 @@
   - `muse-voice-transcribe-1.0` (`wss://api.meta.ai/v1/asr/realtime`): `1626.8 ms` E2E
   - `muse-image-1.0` (`POST /v1/images/edits`): `6648.7 ms`, `input_tokens=312`, `output_tokens=1084`
   - `meta-models/muse-spark-open-1026` on Baseten (text conflict arbiter, req `54ca701a184499b9f75bfa559080e6c99749e`): `3610.61 ms`, `prompt_tokens=287`, `completion_tokens=800` (`reasoning_tokens=749`), `total_tokens=1087`, estimated cost `~$0.0006` from the `$100` Baseten credit pool.
+
+## 8. Live Baseten vision probe + live gate (2026-10-29, ~01:20–01:30 ET)
+
+Script: `scripts/probe_baseten_vision.py` (raw results: `docs/probes/baseten_vision_20261029T012350.json`, `docs/probes/live_gate_20261029.json`).
+Model `meta-models/muse-spark-open-1026` on `https://inference.baseten.co/v1`, `image_url` base64 PNG parts, temperature 0, max_tokens 2048, `<think>` stripped.
+
+**Vision is supported.** Reference image + live image are both accepted (HTTP 200, prompt tokens scale with image size).
+
+| Case | Input | Correct | Latency min / median / max (ms) | Prompt tok | Completion tok |
+|---|---|---|---|---|---|
+| pass_step2 → expect `consistent` | full frames | 3/3 | 7745 / 9193 / 9324 | 2805 | 850–1041 |
+| pass_step2 | blinded paired crops | 3/3 | 5289 / 5905 / 10946 | 475 | 744–894 |
+| fail_flipped_rod → expect `mismatch` | full frames | 3/3 | 8180 / 8221 / 10468 | 2805 | 714–1006 |
+| fail_flipped_rod | blinded paired crops | 3/3 | 5915 / 6644 / 7491 | 475 | 1141–1292 |
+
+Plus 4/4 correct in a preceding 1x smoke run → **16/16 correct** on synthetic golden fixtures. No prompt tuning was needed.
+Example request IDs: `chatcmpl-d3d07c82015d40258dc734f20f95a263` (pass/full), `chatcmpl-d0f706fea81e41e7b8f4f7067af16997` (flip/crop).
+Caveat: these are synthetic renders, not real camera footage.
+
+### Live gate (`run_checkpoint_gate(mode="live")`, SAM 3.1 via Meta proxy + Baseten vision auditor)
+
+| Frame | Provider deadline | Decision | Why | Auditor | Arbiter |
+|---|---|---|---|---|---|
+| pass | 2.8 s (policy) | `unknown` | `UNKNOWN_TIMEOUT` (Baseten ~8–9 s) | fail-closed | not called |
+| pass | 30 s (diagnostic) | `unknown` | providers complete, elapsed 9.2 s > 2.8 s policy | `consistent` | not called |
+| flipped | 2.8 s | `unknown` | `UNKNOWN_TIMEOUT` | fail-closed | ran; hit 2048-token cap → `INSUFFICIENT_EVIDENCE` (fail-closed) |
+| flipped | 30 s | `unknown` | elapsed 8.3 s > 2.8 s | `mismatch` | `MISMATCH` (live, 4.7 s, 346/1106 tok) |
+
+Live SAM 3.1: 1.45–1.56 s, IoU 0.938 vs reference (fixture mode reports 0.972).
+
+**Conclusion:** the live models get the right answer, but Baseten reasoning latency (5–11 s) exceeds the 2.8 s gate deadline, so the live gate correctly fails closed to `unknown` every time. Product decision pending: either raise the live deadline, or make the deterministic precheck the fast gate and the Baseten audit an async confirmation.
+
+### `all_live_verified` semantics
+`all_live_verified` stays **false** in every live gate run, because the DAG compiler, Wonder, voice, and image lanes are not called in a single gate and are reported `NOT_MEASURED`. That is correct. A separate field, `invoked_lanes_live_verified`, is true only if every lane that actually ran returned a real provider receipt. `lanes_not_measured` lists the rest.
+
+### Honesty fixes made during this run
+- The telemetry ledger had been reporting canned `mask_iou=0.972` / `witness_polarity_cosine=-0.994` and forcing `decision=rejected` on any non-accepted run. It now reports the measured values verbatim.
+- The arbiter (`arbitrate_ambiguous_checkpoint`) used to ignore the model and hard-code `MISMATCH`, used a leading prompt, ran in fixture mode even during live gates, cited "Modal H100 Glimmer 30B", and reported `latency 0.1/14.2 ms`. It now uses a neutral prompt, parses the model's verdict, treats unparseable output as `INSUFFICIENT_EVIDENCE`, receives the gate mode, and reports real latency, usage, and request ID (0 when not called). Its max_tokens was raised to 4096.
+- Regression tests: `tests/test_live_honesty_2026_10_29.py`.
+
+Still open: `geometry.py` overwrites a positive polarity cosine with the constant `-0.994` when witness error exceeds the threshold. It is local, but it is still a canned number.

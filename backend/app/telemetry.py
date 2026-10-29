@@ -64,6 +64,11 @@ class VerificationTelemetryEnvelope:
             "total_wall_ms": round(float(self.total_wall_ms), 1),
             "all_live_verified": bool(self.receipts)
             and all(r.measured for r in self.receipts),
+            # Weaker, separately-named claim: every lane that was actually invoked this run returned a real
+            # provider receipt (deterministic local code and NOT_MEASURED lanes are excluded, never counted live).
+            "invoked_lanes_live_verified": any(r.measured and r.status not in ("DETERMINISTIC_LOCAL", "NOT_MEASURED") for r in self.receipts)
+            and all(r.measured for r in self.receipts if r.status not in ("NOT_MEASURED",)),
+            "lanes_not_measured": [r.model_id for r in self.receipts if r.status == "NOT_MEASURED"],
             "dual_open_weight_consensus": self.dual_open_weight_consensus,
             "receipts": [asdict(r) for r in self.receipts],
         }
@@ -120,11 +125,7 @@ def build_six_model_proof_ledger(
         spark_open_verdict = str(baseten_verdict)
     if baseten_latency_ms is not None and not spark_open_latency_ms:
         spark_open_latency_ms = float(baseten_latency_ms)
-    if scenario == "flipped" or include_repair_image:
-        decision = "rejected"
-        witness_aligned = False
-        if witness_polarity_cosine > 0:
-            witness_polarity_cosine = -0.994
+    # Measured values are reported verbatim; nothing is forced to a canned constant here.
 
     def _tok(u: Optional[Dict[str, Any]], *keys: str) -> int:
         for k in keys:

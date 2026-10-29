@@ -85,6 +85,9 @@ def map_transcript_to_command(transcript: str) -> MappedVoiceCommand:
     if not normalized:
         return MappedVoiceCommand(intent="unrecognized", raw_transcript=transcript)
 
+    if re.search(r"\b(don t|dont|do not|never|stop|cancel|not)\b", normalized):
+        return MappedVoiceCommand(intent="unrecognized", raw_transcript=transcript)
+
     for cmd_id, phrases in CANONICAL_VOICE_COMMANDS.items():
         for phrase in phrases:
             if phrase in normalized:

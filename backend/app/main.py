@@ -16,7 +16,7 @@ import mimetypes
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 import cv2
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
@@ -50,7 +50,7 @@ from backend.app.providers.modal_glimmer import ModalGlimmerClient
 from backend.app.state_machine import SLIDER_CRANK_STEPS, SessionStateMachine
 from backend.app.telemetry import build_six_model_proof_ledger
 
-ROOT_DIR = Path("/workspace/rewind")
+ROOT_DIR = Path(__file__).resolve().parents[2]
 GOLDEN_DIR = ROOT_DIR / "fixtures" / "golden_rig"
 PRINTABLE_DIR = ROOT_DIR / "fixtures" / "printable"
 FRONTEND_DIST_DIR = ROOT_DIR / "frontend" / "dist"
@@ -170,11 +170,11 @@ def _serve_asset_file(directory: Path, filename: str) -> FileResponse:
 
 
 class ModeSwitchRequest(BaseModel):
-    mode: str = Field(default="fixture", description="One of: fixture, hybrid, live")
+    mode: Literal["fixture", "hybrid", "live"] = Field(default="fixture")
 
 
 class TeardownCompileRequest(BaseModel):
-    mode: str = Field(default="fixture", description="One of: fixture, hybrid, live")
+    mode: Literal["fixture", "hybrid", "live"] = Field(default="fixture")
     video_url: str = Field(default="/api/assets/golden/teardown_clip.mp4")
 
 
@@ -188,7 +188,7 @@ class CheckpointVerifyRequest(BaseModel):
         default="pass_step2",
         description="One of: pass_step2, fail_flipped_rod, fail_camera_bump, timeout",
     )
-    mode: Optional[str] = Field(default=None, description="One of: fixture, hybrid, live")
+    mode: Optional[Literal["fixture", "hybrid", "live"]] = None
     image_path: Optional[str] = None
     simulated_elapsed_ms: Optional[float] = None
 
@@ -213,11 +213,11 @@ class VoiceCommandRequest(BaseModel):
     transcript: Optional[str] = Field(default="check step")
     wav_path: Optional[str] = None
     audio_pcm_base64: Optional[str] = None
-    mode: str = Field(default="fixture", description="fixture or live")
+    mode: Literal["fixture", "live"] = Field(default="fixture")
 
 
 class BonusLaneRequest(BaseModel):
-    mode: str = Field(default="fixture", description="fixture or live")
+    mode: Literal["fixture", "live"] = Field(default="fixture")
     question: Optional[str] = None
 
 
@@ -226,6 +226,12 @@ def _resolve_frame_path(scenario: str, custom_path: Optional[str] = None) -> Pat
         p = Path(custom_path)
         if not p.is_absolute():
             p = ROOT_DIR / p
+        p = p.resolve()
+        allowed_roots = [GOLDEN_DIR.resolve(), (ROOT_DIR / "fixtures").resolve(), (ROOT_DIR / "tests").resolve()]
+        if not any(p == r or r in p.parents for r in allowed_roots):
+            raise HTTPException(status_code=400, detail="image_path must be inside the repository fixture directories")
+        if p.suffix.lower() not in (".png", ".jpg", ".jpeg"):
+            raise HTTPException(status_code=400, detail="image_path must be a .png/.jpg image")
         if not p.exists():
             raise HTTPException(status_code=404, detail=f"Image path not found: {p}")
         return p
@@ -328,6 +334,7 @@ async def set_execution_mode(req: ModeSwitchRequest) -> Dict[str, Any]:
 @app.post("/api/session/reset")
 async def reset_session_state() -> Dict[str, Any]:
     global session_sm, last_flat_measurement
+    session_sm.retire()  # in-flight gates holding the old session must not commit
     session_sm = SessionStateMachine()
     session_sm.current_step_index = 1
     last_flat_measurement = None
@@ -549,7 +556,8 @@ async def generate_cad_endpoint(req: CadGenerateRequest) -> Dict[str, Any]:
             "thickness": req.thickness,
             "pin_diameter": req.pin_diameter,
             "diametral_clearance": req.diametral_clearance,
-            "uncertainty_95_mm": 0.25,
+            "uncertainty_95_mm": None,  # user-supplied dims: uncertainty not measured
+            "uncertainty_source": "user_supplied_unmeasured",
         }
     elif last_flat_measurement is not None:
         source_meas = last_flat_measurement
@@ -596,7 +604,7 @@ async def generate_cad_endpoint(req: CadGenerateRequest) -> Dict[str, Any]:
 async def execute_voice_command(req: VoiceCommandRequest) -> Dict[str, Any]:
     if req.mode == "live" and req.wav_path:
         voice_client = MetaVoiceClient()
-        vt_res = await voice_client.transcribe_wav_file(req.wav_path)
+        vt_res = await voice_client.transcribe_wav_24khz(req.wav_path)
         mapped = vt_res.command
         transcript_text = vt_res.transcript
         latency_ms = vt_res.total_latency_ms
@@ -609,12 +617,12 @@ async def execute_voice_command(req: VoiceCommandRequest) -> Dict[str, Any]:
     action_result: Dict[str, Any] = {}
 
     if intent == "check_step":
-        outcome = await run_checkpoint_gate(
-            SCENARIO_TO_FRAME["pass_step2"],
-            state_machine=session_sm,
-            mode="fixture",
-        )
-        action_result = {"checkpoint_decision": outcome.decision, "elapsed_ms": outcome.elapsed_ms}
+        # Voice never fabricates a camera frame: without a live capture we do not run the gate.
+        action_result = {
+            "checkpoint_decision": "unknown",
+            "reason_codes": ["no_live_frame_for_voice_check"],
+            "message": "Voice 'check step' requires a captured frame; call /api/checkpoint/verify with the current frame.",
+        }
     elif intent == "explain_failure":
         last_gate = session_sm.last_gate_decision
         reasons = last_gate["payload"].get("reason_codes", []) if last_gate else ["witness_mark_misaligned"]
@@ -715,7 +723,8 @@ async def run_bonus_cua_inspect(req: BonusLaneRequest) -> Dict[str, Any]:
             display_height=680,
         )
         info = {
-            "status": "inspected",
+            "status": "cua_actions_returned" if cua_res.computer_calls else "no_cua_actions",
+            "measured": False,
             "model": cua_res.model_used,
             "tool_declaration": {"type": "computer", "display_width": 1200, "display_height": 680},
             "computer_calls": cua_res.computer_calls,

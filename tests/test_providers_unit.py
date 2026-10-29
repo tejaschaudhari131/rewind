@@ -49,8 +49,9 @@ def test_sam_token_decoder_and_iou() -> None:
 
 
 def test_multi_box_prompt_formatting() -> None:
-    prompt = format_multi_box_prompt([(147, 147, 263, 263), (380, 173, 472, 236)])
-    assert prompt == "<0f>1<|box;147,147,263,263|>,2<|box;380,173,472,236|>"
+    prompt = format_multi_box_prompt([(147, 147, 263, 263), (380, 173, 472, 236)], image_size=(1280, 720))
+    assert prompt.startswith("<0f>1<|box;x1=147;y1=147;x2=263;y2=263;w=1280;h=720|>")
+    assert "2<|box;x1=380;y1=173;x2=472;y2=236;w=1280;h=720|>" in prompt
 
 
 def test_voice_command_mapper() -> None:

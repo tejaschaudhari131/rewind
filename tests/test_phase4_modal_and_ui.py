@@ -165,18 +165,18 @@ async def test_deterministic_id_pinning_on_llm_hyphen_typo() -> None:
         assert w_res.proposal["evidence_ids"] == [frame_id]
         assert w_res.proposal["measurement_record_id"] == "meas-flat-link-001"
 
+        # Glimmer identity mismatches are no longer silently rewritten: they fail closed.
         glimmer = ModalGlimmerClient(modal_endpoint="", client=mock_client)
-        g_res = await glimmer.audit_checkpoint(
-            current_image=GOLDEN_DIR / "checkpoint_pass_step2.png",
-            reference_image=None,
-            blinded_context={
-                "observation_id": obs_id,
-                "frame_id": frame_id,
-                "part_id": "connecting-rod",
-            },
-        )
-        assert g_res.audit["observation_id"] == obs_id
-        assert g_res.audit["observations"][0]["frame_id"] == frame_id
+        with pytest.raises(ValueError):
+            await glimmer.audit_checkpoint(
+                current_image=GOLDEN_DIR / "checkpoint_pass_step2.png",
+                reference_image=None,
+                blinded_context={
+                    "observation_id": obs_id,
+                    "frame_id": frame_id,
+                    "part_id": "connecting-rod",
+                },
+            )
 
 
 def test_phase4_workbench_and_asset_endpoints() -> None:

@@ -87,7 +87,7 @@ def compute_frame_motion_score(
 class SessionStateMachine:
     """Thread/async-safe deterministic state machine for a REWIND verification session."""
 
-    session_id: str = field(default_factory=lambda: "00000000-0000-4000-8000-000000000001")
+    session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     scene_version: int = 1
     plan_version: int = 1
     current_step_index: int = 1  # Default to Step 2 (`attach-connecting-rod`) for golden checkpoint
@@ -107,6 +107,10 @@ class SessionStateMachine:
     last_cad_artifact: Optional[Dict[str, Any]] = None
     bonus_outputs: Dict[str, Any] = field(default_factory=dict)
     envelope_log: List[Dict[str, Any]] = field(default_factory=list)
+    # Monotonic counter bumped on every begin/invalidate/retire so a late provider result
+    # from an older observation can never commit (external audit 2026-10-29, A1/A2).
+    generation: int = 0
+    retired: bool = False
 
     @property
     def current_step(self) -> Dict[str, Any]:
@@ -132,18 +136,56 @@ class SessionStateMachine:
         """Transition `MOVING -> CAPTURING` when `motion_score < stationary_threshold`."""
         self.last_motion_score = round(float(motion_score), 4)
         if motion_score < stationary_threshold:
-            self.state = "CAPTURING"
+            if self.state != "CHECKING":
+                self.state = "CAPTURING"
         else:
+            if self.state == "CHECKING" and self.active_observation_id is not None:
+                # Movement while a check is pending invalidates that observation: bump the scene
+                # version and generation so the in-flight gate result fails CAS and cannot commit.
+                self.invalidate_pending_observation()
             self.state = "MOVING"
             self.provisional_status = None
         return self.state
+
+    def invalidate_pending_observation(self) -> None:
+        self.active_observation_id = None
+        self.active_observation_sha256 = None
+        self.scene_version += 1
+        self.generation += 1
+
+    def retire(self) -> None:
+        """Retire this session object (e.g. on reset) so any in-flight gate run cannot commit into it."""
+        self.retired = True
+        self.active_observation_id = None
+        self.active_observation_sha256 = None
+        self.generation += 1
+
+    def capture_token(self) -> Tuple[Any, ...]:
+        return (
+            self.session_id,
+            self.generation,
+            self.scene_version,
+            self.plan_version,
+            self.step_id,
+            self.active_observation_id,
+        )
+
+    def token_is_current(self, token: Tuple[Any, ...]) -> bool:
+        return (not self.retired) and self.state == "CHECKING" and self.capture_token() == tuple(token)
 
     def begin_checkpoint_observation(
         self,
         observation_id: Optional[str] = None,
         observation_sha256: Optional[str] = None,
     ) -> Tuple[int, int, str, str]:
-        """Lock an observation tuple `(scene_version, plan_version, step_id, observation_id)` and enter `CHECKING`."""
+        """Lock an observation tuple `(scene_version, plan_version, step_id, observation_id)` and enter `CHECKING`.
+
+        A new observation supersedes any pending one (generation bump), so at most one in-flight
+        check per session can ever commit.
+        """
+        if self.retired:
+            raise SemanticValidationError("SESSION_RETIRED", "Session was reset; begin a new session.")
+        self.generation += 1
         self.active_observation_id = observation_id or str(uuid.uuid4())
         self.active_observation_sha256 = observation_sha256 or ("b" * 64)
         self.state = "CHECKING"
@@ -204,10 +246,19 @@ class SessionStateMachine:
             self.scene_version,
             self.plan_version,
             self.step_id,
-            self.active_observation_id or env_obs,
+            self.active_observation_id,
         )
         candidate_tuple = (env_sv, env_pv, env_step, env_obs)
 
+        if self.retired:
+            raise SemanticValidationError("SESSION_RETIRED", "Gate commit into a retired (reset) session.")
+        if self.state != "CHECKING" or self.active_observation_id is None:
+            raise SemanticValidationError(
+                "CAS_MISMATCH",
+                f"No pending observation to commit (state={self.state!r}); stale or duplicate gate commit.",
+            )
+        if gate_envelope.get("session_id") != self.session_id:
+            raise SemanticValidationError("CAS_MISMATCH", "Gate commit session_id does not match this session.")
         if candidate_tuple != expected_tuple:
             raise SemanticValidationError(
                 "CAS_MISMATCH",
@@ -217,7 +268,17 @@ class SessionStateMachine:
         payload = gate_envelope["payload"]
         decision = str(payload["decision"])
         reasons = list(payload.get("reason_codes", []))
+        if decision == "accepted":
+            required = set(self.current_step.get("required_predicate_ids", []))
+            if not required.issubset(set(payload.get("completed_predicate_ids", []))):
+                raise SemanticValidationError(
+                    "INCOMPLETE_PREDICATES",
+                    f"Accepted commit for {self.step_id!r} must complete {sorted(required)}.",
+                )
 
+        # Consume the observation: a second commit of the same envelope fails CAS.
+        self.active_observation_id = None
+        self.generation += 1
         self.record_envelope(gate_envelope)
         self.last_gate_decision = dict(gate_envelope)
 
@@ -254,6 +315,8 @@ class SessionStateMachine:
             "part_id": self.part_id,
             "step_title": self.current_step["title"],
             "active_observation_id": self.active_observation_id,
+            "generation": self.generation,
+            "retired": self.retired,
             "registration_valid": self.registration_valid,
             "last_registration_rmse_px": self.last_registration_rmse_px,
             "last_motion_score": self.last_motion_score,

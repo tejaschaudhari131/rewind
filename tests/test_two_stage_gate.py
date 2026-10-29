@@ -184,3 +184,37 @@ def test_api_two_stage_ws_push():
         obs = body["observation_id"]
         res = client.get(f"/api/checkpoint/stage2/{obs}", params={"wait_ms": 5000}).json()
         assert res["stage"] == 2 and res["decision"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_sam_bounded_retry_logs_status_codes():
+    import httpx
+    from backend.app.providers.meta_sam import MetaSamClient
+    calls = {"n": 0}
+
+    def handler(req):
+        calls["n"] += 1
+        return httpx.Response(404, json={"error": {"code": "model_not_found"}}, headers={"x-request-id": f"r{calls['n']}"})
+
+    c = MetaSamClient(client=httpx.AsyncClient(transport=httpx.MockTransport(handler)), backoff_s=(0.01, 0.01))
+    with pytest.raises(httpx.HTTPStatusError):
+        await c.segment_image(PASS.read_bytes(), prompt_text="yellow connecting rod")
+    assert calls["n"] == 3  # 1 + 2 retries, bounded
+    assert [a["status"] for a in c.last_attempts] == [404, 404, 404]
+    assert c.last_attempts[0]["error_code"] == "model_not_found"
+
+
+@pytest.mark.asyncio
+async def test_sam_retry_respects_budget():
+    import httpx
+    from backend.app.providers.meta_sam import MetaSamClient
+    c = MetaSamClient(client=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(503))),
+                      backoff_s=(5.0, 5.0), retry_budget_s=1.0)
+    with pytest.raises(httpx.HTTPStatusError):
+        await c.segment_image(PASS.read_bytes(), prompt_text="x")
+    assert len(c.last_attempts) == 1
+
+
+def test_stage2_defaults():
+    from backend.app import two_stage
+    assert two_stage.STAGE2_DEADLINE_MS == 20000.0 and 1024 <= two_stage.STAGE2_MAX_TOKENS <= 4096

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import logging
+import asyncio
 import io
 import time
 from dataclasses import dataclass, field
@@ -266,11 +268,26 @@ def format_multi_box_prompt(
     return build_object_prompt(size=(int(image_size[0]), int(image_size[1])), objects=objects)
 
 
+logger = logging.getLogger("rewind.sam")
+
+
 class MetaSamClient:
     """Live & contract-validated client for Meta `sam-3.1` (`/v1/responses`)."""
 
-    def __init__(self, *, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        client: httpx.AsyncClient | None = None,
+        max_retries: int = 2,
+        backoff_s: tuple[float, ...] = (0.15, 0.4),
+        retry_budget_s: float = 1.6,
+    ) -> None:
         self._external_client = client
+        # Bounded retry inside the stage-1 budget (2.8 s): at most 2 retries, never past retry_budget_s.
+        self.max_retries = max_retries
+        self.backoff_s = tuple(backoff_s) + (0.0,) * 4
+        self.retry_budget_s = retry_budget_s
+        self.last_attempts: list[dict[str, Any]] = []
 
     async def segment_image(
         self,
@@ -310,20 +327,40 @@ class MetaSamClient:
             payload["metadata"] = {"include_confidence": "true"}
 
         t0 = time.perf_counter()
-        if self._external_client is not None:
-            resp = await self._external_client.post(
-                f"{settings.meta_api_base}/responses",
-                headers=settings.auth_headers(),
-                json=payload,
-            )
-        else:
-            async with build_httpx_client() as client:
-                resp = await client.post(
-                    f"{settings.meta_api_base}/responses",
-                    headers=settings.auth_headers(),
-                    json=payload,
-                )
+        attempts: list[dict[str, Any]] = []
+        resp = None
+        for attempt in range(self.max_retries + 1):
+            a0 = time.perf_counter()
+            try:
+                if self._external_client is not None:
+                    resp = await self._external_client.post(
+                        f"{settings.meta_api_base}/responses", headers=settings.auth_headers(), json=payload)
+                else:
+                    async with build_httpx_client() as client:
+                        resp = await client.post(
+                            f"{settings.meta_api_base}/responses", headers=settings.auth_headers(), json=payload)
+                code: Any = resp.status_code
+                err_code = ""
+                if code != 200:
+                    try:
+                        err_code = str((resp.json().get("error") or {}).get("code", ""))
+                    except Exception:
+                        err_code = ""
+            except httpx.TransportError as exc:
+                resp, code, err_code = None, f"transport:{type(exc).__name__}", ""
+            attempts.append({"attempt": attempt, "status": code, "error_code": err_code,
+                             "ms": round((time.perf_counter() - a0) * 1000.0, 1),
+                             "request_id": (resp.headers.get("x-request-id", "") if resp is not None else "")})
+            logger.info("sam-3.1 attempt %d status=%s error=%s", attempt, code, err_code)
+            retryable = resp is None or resp.status_code in (404, 408, 409, 425, 429, 500, 502, 503, 504)
+            elapsed = time.perf_counter() - t0
+            if not retryable or attempt == self.max_retries or elapsed + self.backoff_s[attempt] > self.retry_budget_s:
+                break
+            await asyncio.sleep(self.backoff_s[attempt])
+        self.last_attempts = attempts
         latency_ms = (time.perf_counter() - t0) * 1000.0
+        if resp is None:
+            raise httpx.ConnectError(f"sam-3.1 transport failure after {len(attempts)} attempts")
         resp.raise_for_status()
         body = resp.json()
 
@@ -349,7 +386,7 @@ class MetaSamClient:
             raw_output_text=raw_text,
             latency_ms=round(latency_ms, 2),
             instances=instances,
-            usage=body.get("usage", {}),
+            usage={**(body.get("usage", {}) or {}), "attempts": attempts},
         )
 
     async def segment_multiple_prompts(

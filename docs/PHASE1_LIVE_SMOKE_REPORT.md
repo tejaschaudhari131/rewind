@@ -320,3 +320,57 @@ What these runs show:
 - flipped_rod: with live SAM, the model confirmed the provisional reject (`rejected`, confirmed, 14.0 s). When SAM failed, the model's `mismatch` still gave a confirmed `rejected`, because rejection is the safe side.
 - pass: in the one run with live SAM, the audit timed out, so we have **no confirmed live accept yet**. Whenever SAM failed, the model said `consistent` but the gate correctly would not auto-accept (`unknown`, needs review).
 - No result was ever accepted without both stages agreeing.
+
+
+## 10. Demo reliability pass (2026-10-29, about 1:40–2:00 AM ET)
+
+### Root cause of the SAM 404s
+- Every 404 has the body `{"error":{"code":"model_not_found"}}` and a valid `x-request-id`. That rules out the route, the payload and rate limiting: there were no 429s, and the payload is the same one that also returns 200.
+- During the bad windows, `GET /v1/models` through the egress proxy (`127.0.0.1:8791`, the box's `sand-egress-tun`) returned `200 {"data":[]}`. In those windows *every* model returned `model_not_found`: `sam-3.1`, `sam-3`, `sam3.1`, `meta-sam-3.1`, `sam-3.1-preview` and even `muse-spark-1.3-contributor`.
+- The id `sam-3.1` is correct; it returns 200 whenever the account has its model list.
+- **Conclusion:** the Meta API key/account loses its model entitlements intermittently. The whole model list goes empty for windows of seconds to minutes. This is upstream (Meta account/gateway side), not a bug in REWIND.
+- Unconfirmed: it may depend on which egress path the proxy uses. Tejas's computer went offline during the session.
+
+### Mitigations
+- **`MetaSamClient` bounded retry:**
+  - At most 2 retries, with 150 ms then 400 ms backoff.
+  - Only on 404/408/409/425/429/5xx or a transport error.
+  - Never past a 1.6 s budget, so stage 1 stays under 2.8 s.
+  - Every attempt is logged with its status, error code, ms and request id. The attempt log is exposed in the stage-1 payload as `sam.attempts`.
+  - If all attempts fail, stage 1 is `unknown` as before (fail closed).
+- **Stage 2:**
+  - Now sends the **paired blinded crops** (475 prompt tokens, down from 2,805).
+  - `max_tokens=1536`. Measured completions were 727–1,306 and all finished with `stop`. A `length` finish with no parsable verdict gives `insufficient_evidence`, which gives `unknown`.
+  - Deadline is 20 s by default (`REWIND_STAGE2_DEADLINE_MS`).
+
+### Live E2E (raw: `docs/probes/two_stage_live_20261029_r2.json` = batch A, `_r3.json` = batch B)
+
+| Run | Fixture | SAM attempts | Stage-1 provisional | Stage-1 ms | Model | Model ms | Tokens in/out | Request ID | Consensus | Final | Stage-2 ms |
+| :-- | :-- | :-- | :-- | --: | :-- | --: | :-- | :-- | :-- | :-- | --: |
+| A0 | pass | 404,404,404 | `unknown` | 1694 | consistent | 5712 | 475/727 (stop) | `…918d7b81` | not triggered | **unknown** (overridden) | 5713 |
+| A0 | flipped_rod | 404,404,404 | `unknown` | 1826 | mismatch | 5877 | 475/926 (stop) | `…1fc63eaa` | INSUFFICIENT_EVIDENCE | **rejected** (confirmed) | 17005 |
+| A1 | pass | 404,404,404 | `unknown` | 1489 | consistent | 5812 | 475/1120 (stop) | `…58115aa1` | not triggered | **unknown** (overridden) | 5812 |
+| A1 | flipped_rod | 404,404,404 | `unknown` | 1573 | mismatch | 6612 | 475/1306 (stop) | `…acc54f57` | INSUFFICIENT_EVIDENCE | **rejected** (confirmed) | 13215 |
+| A2 | pass | 404,404,404 | `unknown` | 1820 | consistent | 5491 | 475/780 (stop) | `…5ef07faf` | not triggered | **unknown** (overridden) | 5492 |
+| A2 | flipped_rod | 404,404,404 | `unknown` | 1660 | mismatch | 6262 | 475/1024 (stop) | `…590beeb1` | INSUFFICIENT_EVIDENCE | **rejected** (confirmed) | 13966 |
+| A3 | pass | 404,404,404 | `unknown` | 1741 | consistent | 5198 | 475/767 (stop) | `…73e51cd2` | not triggered | **unknown** (overridden) | 5199 |
+| A3 | flipped_rod | 200 | `provisional_rejected` | 1500 | mismatch | 6644 | 475/1239 (stop) | `…8758aefd` | MISMATCH | **rejected** (confirmed) | 10572 |
+| A4 | pass | 404,404,404 | `unknown` | 1484 | consistent | 5105 | 475/809 (stop) | `…85fe3395` | not triggered | **unknown** (overridden) | 5106 |
+| A4 | flipped_rod | 200 | `provisional_rejected` | 1070 | mismatch | 6060 | 475/1070 (stop) | `…d8b08f00` | MISMATCH | **rejected** (confirmed) | 7195 |
+| B0 | pass | 404,404,404 | `unknown` | 1807 | consistent | 6011 | 475/921 (stop) | `…2b092565` | not triggered | **unknown** (overridden) | 6012 |
+| B1 | pass | 404,404,200 | `provisional_accepted` | 2339 | consistent | 5261 | 475/729 (stop) | `…2013fc63` | not triggered | **accepted** (confirmed) | 5262 |
+| B2 | pass | 404,404,200 | `provisional_accepted` | 2122 | consistent | 5634 | 475/1048 (stop) | `…743bfd5b` | not triggered | **accepted** (confirmed) | 5634 |
+| B3 | pass | 200 | `provisional_accepted` | 1707 | consistent | 5132 | 475/808 (stop) | `…e5e52914` | not triggered | **accepted** (confirmed) | 5133 |
+| B4 | pass | 404,404,200 | `provisional_accepted` | 2284 | consistent | 4786 | 475/845 (stop) | `…0787c75b` | not triggered | **accepted** (confirmed) | 4787 |
+
+### Results
+- **flipped_rod:** 5/5 **confirmed rejected** (batch A). In 3 runs SAM was down for the whole window; the rejection there rests on the model's `mismatch`, which is the safe direction.
+- **pass:**
+  - Batch A ran while SAM was down for the whole window. All 5 attempts got 404, so the result was 0/5 accepted. The model said `consistent` in all 5, and the gate correctly refused to auto-accept (`unknown`, needs review).
+  - Batch B: 4/5 **confirmed accepted**. Three of those succeeded only on the third SAM attempt (`404,404,200`), so the retry is what made them work. The fifth was a full 404 window, so `unknown`.
+- **Model accuracy:** 15/15 findings correct (10 consistent on pass, 5 mismatch on flipped).
+- **Latency:**
+  - Stage 1: 1,070–2,339 ms, every run under 2.8 s.
+  - Baseten audit on crops: **4.8–6.6 s**, down from 8.5–14 s on full frames. No stage-2 timeouts.
+  - Stage-2 end-to-end: 4.8–6.0 s for pass. For flipped it was 7.2–17.0 s, because the text consensus check runs in parallel and can take up to about 17 s.
+- **Fail closed held throughout:** no accept without SAM + local + model agreement.

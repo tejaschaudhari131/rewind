@@ -37,7 +37,8 @@ def _to_data_url(src: bytes | Path | str) -> str:
 
 
 class BasetenVisionAuditor:
-    def __init__(self, *, api_key: str | None = None, timeout_s: float = 90.0) -> None:
+    def __init__(self, *, api_key: str | None = None, timeout_s: float = 90.0, max_tokens: int = 2048) -> None:
+        self.max_tokens = max_tokens
         self.api_key = api_key if api_key is not None else settings.baseten_api_key
         self.model = settings.baseten_spark_model
         self.timeout_s = timeout_s
@@ -62,7 +63,7 @@ class BasetenVisionAuditor:
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": parts}],
-            "max_tokens": 2048,
+            "max_tokens": self.max_tokens,
             "temperature": 0.0,
         }
         url = f"{settings.baseten_base_url.rstrip('/')}/chat/completions"
@@ -77,7 +78,10 @@ class BasetenVisionAuditor:
         resp.raise_for_status()
         body = resp.json()
         msg = body.get("choices", [{}])[0].get("message", {})
+        finish_reason = body.get("choices", [{}])[0].get("finish_reason")
         _, parsed = extract_spark_open_content_and_json(msg)
+        if finish_reason == "length" and not parsed:
+            parsed = {"finding": "insufficient_evidence", "statement": "model output truncated (max_tokens)"}
         if not parsed or parsed.get("finding") not in ("consistent", "mismatch", "insufficient_evidence"):
             parsed = {"finding": "insufficient_evidence", "statement": "unparseable model output"}
         finding = parsed["finding"]
@@ -93,4 +97,6 @@ class BasetenVisionAuditor:
         usage = dict(body.get("usage") or {})
         usage["request_id"] = str(body.get("id") or resp.headers.get("x-request-id") or "")
         usage["raw_verdict"] = parsed
+        usage["finish_reason"] = finish_reason
+        usage["max_tokens"] = self.max_tokens
         return GlimmerAuditResult(model_used=self.model, audit=audit, latency_ms=latency_ms, usage=usage)

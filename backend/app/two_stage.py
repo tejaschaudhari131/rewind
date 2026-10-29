@@ -32,7 +32,10 @@ from backend.app.providers.baseten_vision import BasetenVisionAuditor
 from backend.app.state_machine import SessionStateMachine
 
 STAGE1_DEADLINE_MS = 2800.0
-STAGE2_DEADLINE_MS = float(os.getenv("REWIND_STAGE2_DEADLINE_MS", "15000"))
+STAGE2_DEADLINE_MS = float(os.getenv("REWIND_STAGE2_DEADLINE_MS", "20000"))
+# Paired blinded crops (~475 prompt tokens) instead of full frames (~2,805). Thinking used 737-936
+# completion tokens on full frames; 1536 leaves headroom, truncation -> insufficient_evidence (fail closed).
+STAGE2_MAX_TOKENS = int(os.getenv("REWIND_STAGE2_MAX_TOKENS", "1536"))
 MIN_IOU = 0.82
 MIN_WITNESS_COS = 0.65
 MAX_WITNESS_ERR_PX = 6.0
@@ -87,6 +90,9 @@ async def run_two_stage_gate(
     motion_score: Optional[float] = None,
 ) -> tuple[Dict[str, Any], "asyncio.Task[Dict[str, Any]]"]:
     """Run stage 1 now and schedule stage 2. Returns (stage1_payload, stage2_task)."""
+    if sam_client is None and mode in ("live", "hybrid"):
+        from backend.app.providers.meta_sam import MetaSamClient
+        sam_client = MetaSamClient()
     t0 = time.perf_counter()
     outcome = await run_checkpoint_gate(
         image, state_machine=state_machine, mode=mode, sam_client=sam_client,
@@ -119,6 +125,7 @@ async def run_two_stage_gate(
             "measured": bool(d.get("sam_measured")),
             "latency_ms": round(float(getattr(d.get("sam_result"), "latency_ms", 0.0) or 0.0), 1),
             "instances": len(getattr(d.get("sam_result"), "instances", []) or []),
+            "attempts": list(getattr(sam_client, "last_attempts", []) or []),
         },
         "paired_crop_ref_b64": g.paired_crop_ref_b64,
         "paired_crop_live_b64": g.paired_crop_live_b64,
@@ -128,6 +135,7 @@ async def run_two_stage_gate(
     async def _stage2() -> Dict[str, Any]:
         s2_t0 = time.perf_counter()
         audit_res = None
+        audit_input = "none"
         error = None
         finding: Optional[str] = None
         live = mode == "live"
@@ -147,10 +155,19 @@ async def run_two_stage_gate(
                 # Measurement frame is invalid: deterministic hard reject, no model needed (fail closed).
                 error = "registration_lost_no_model_call"
             elif live or audit_client is not None:
-                auditor = audit_client or BasetenVisionAuditor()
+                auditor = audit_client or BasetenVisionAuditor(max_tokens=STAGE2_MAX_TOKENS)
+                cur_img, ref_img = d["raw_bytes"], d["reference_image_bytes"]
+                if g.paired_crop_ref_b64 and g.paired_crop_live_b64:
+                    import base64 as _b64
+                    def _dec(x: str) -> bytes:
+                        return _b64.b64decode(x.split(",", 1)[1] if x.startswith("data:") else x)
+                    cur_img, ref_img = _dec(g.paired_crop_live_b64), _dec(g.paired_crop_ref_b64)
+                    audit_input = "paired_blinded_crops"
+                else:
+                    audit_input = "full_frames"
                 audit_res = await asyncio.wait_for(
                     auditor.audit_checkpoint(
-                        current_image=d["raw_bytes"], reference_image=d["reference_image_bytes"],
+                        current_image=cur_img, reference_image=ref_img,
                         blinded_context=d["blinded_context"],
                     ),
                     timeout=stage2_deadline_ms / 1000.0,
@@ -222,6 +239,9 @@ async def run_two_stage_gate(
                 "prompt_tokens": usage.get("prompt_tokens", 0),
                 "completion_tokens": usage.get("completion_tokens", 0),
                 "request_id": usage.get("request_id", ""),
+                "input": audit_input,
+                "finish_reason": usage.get("finish_reason"),
+                "max_tokens": usage.get("max_tokens"),
             },
             "arbiter": {k: arbiter.get(k) for k in ("triggered", "verdict", "consensus", "latency_ms", "measured",
                                                     "request_id", "explanation") if k in arbiter}

@@ -1,0 +1,439 @@
+[
+  {
+    "run": 0,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "unknown",
+      "provisional_reason_codes": [
+        "PROVIDER_ERROR",
+        "witness_mark_misaligned",
+        "low_visual_audit_confidence"
+      ],
+      "stage1_elapsed_ms": 1807.2,
+      "stage1_within_deadline": true,
+      "session_id": "8c3a5b3a-9cad-4fe9-80f6-3c08c06abadf",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "a9507f2e-ac6b-4aa2-a8b1-145bb1acf9e4",
+      "silhouette_iou": 0.9722,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": false,
+        "latency_ms": 0.0,
+        "instances": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 197.3,
+            "request_id": "7a5e2fc7-9ab1-4f87-acf4-2c99566fe993"
+          },
+          {
+            "attempt": 1,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 405.0,
+            "request_id": "4069165d-5dcd-4f19-bd64-208fb957d014"
+          },
+          {
+            "attempt": 2,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 177.0,
+            "request_id": "10093663-39fb-4344-9e3f-316be7e473d3"
+          }
+        ]
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "8c3a5b3a-9cad-4fe9-80f6-3c08c06abadf",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "a9507f2e-ac6b-4aa2-a8b1-145bb1acf9e4",
+      "provisional_verdict": "unknown",
+      "decision": "unknown",
+      "resolution": "overridden",
+      "needs_review": true,
+      "reason_codes": [
+        "model_local_disagreement_needs_review"
+      ],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the same left/crank end in both REFERENCE and LIVE crops; rod appears fully seated flush on both pins with no offset or lift.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 6010.72,
+        "prompt_tokens": 475,
+        "completion_tokens": 921,
+        "request_id": "chatcmpl-e0ac24c534c24c00a73a07142b092565",
+        "input": "paired_blinded_crops",
+        "finish_reason": "stop",
+        "max_tokens": 1536
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 1807.2,
+      "stage2_elapsed_ms": 6011.5,
+      "stage2_deadline_ms": 20000.0,
+      "gate_envelope_message_id": "cc7324a1-3a33-4e82-8a4f-fa9584d623e7"
+    },
+    "total_ms": 7821.3
+  },
+  {
+    "run": 1,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_accepted",
+      "provisional_reason_codes": [],
+      "stage1_elapsed_ms": 2339.2,
+      "stage1_within_deadline": true,
+      "session_id": "094ad047-9bd0-4e51-a059-7065c8bb9976",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "47e7dd57-3150-427c-aee5-5b17791195d3",
+      "silhouette_iou": 0.9377,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 2006.9,
+        "instances": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 104.9,
+            "request_id": "04feb111-7542-4a34-bc44-55b74e13d3e4"
+          },
+          {
+            "attempt": 1,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 160.5,
+            "request_id": "d8710932-a369-4c41-9483-204cd1bb0266"
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "error_code": "",
+            "ms": 1190.6,
+            "request_id": "710b7063-e659-4bfe-a76d-8d2df0485019"
+          }
+        ]
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "094ad047-9bd0-4e51-a059-7065c8bb9976",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "47e7dd57-3150-427c-aee5-5b17791195d3",
+      "provisional_verdict": "provisional_accepted",
+      "decision": "accepted",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe (black/white) is at the same left end in both REFERENCE and LIVE crops; rod appears seated flush on both pins with no visible offset, lift, or mis-seating.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 5261.38,
+        "prompt_tokens": 475,
+        "completion_tokens": 729,
+        "request_id": "chatcmpl-55a44b59c1874c90b8a5ad9e2013fc63",
+        "input": "paired_blinded_crops",
+        "finish_reason": "stop",
+        "max_tokens": 1536
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 2339.2,
+      "stage2_elapsed_ms": 5261.8,
+      "stage2_deadline_ms": 20000.0,
+      "gate_envelope_message_id": "62d2bcfd-5f8c-4835-800c-bd89953adf7b"
+    },
+    "total_ms": 7603.6
+  },
+  {
+    "run": 2,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_accepted",
+      "provisional_reason_codes": [],
+      "stage1_elapsed_ms": 2122.3,
+      "stage1_within_deadline": true,
+      "session_id": "199a89fb-efa5-4454-8b3b-02a30514b614",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "2b865ecf-e47f-4ea2-bcb1-2706c6202b07",
+      "silhouette_iou": 0.9377,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 1608.6,
+        "instances": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 91.9,
+            "request_id": "0eb49557-87c1-45cc-a56b-bb3022beaf18"
+          },
+          {
+            "attempt": 1,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 363.6,
+            "request_id": "851a9e2e-6851-4752-899c-3db6a12af2f3"
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "error_code": "",
+            "ms": 602.1,
+            "request_id": "89f2258a-2a63-4385-bb83-3ece9b5c82bc"
+          }
+        ]
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "199a89fb-efa5-4454-8b3b-02a30514b614",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "2b865ecf-e47f-4ea2-bcb1-2706c6202b07",
+      "provisional_verdict": "provisional_accepted",
+      "decision": "accepted",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the same (left/crank) end in both REFERENCE and LIVE crops and rod appears seated flush on both pins with holes centered over pins.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 5633.93,
+        "prompt_tokens": 475,
+        "completion_tokens": 1048,
+        "request_id": "chatcmpl-c85884f57c344b4bb36518bb743bfd5b",
+        "input": "paired_blinded_crops",
+        "finish_reason": "stop",
+        "max_tokens": 1536
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 2122.3,
+      "stage2_elapsed_ms": 5634.4,
+      "stage2_deadline_ms": 20000.0,
+      "gate_envelope_message_id": "5377774e-36fe-4d63-b0d6-4aa5c2407b4e"
+    },
+    "total_ms": 7759.2
+  },
+  {
+    "run": 3,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_accepted",
+      "provisional_reason_codes": [],
+      "stage1_elapsed_ms": 1707.3,
+      "stage1_within_deadline": true,
+      "session_id": "38666e39-61a7-4771-bc4f-9eb7e28edaac",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "fb6a0450-1dc4-4b3b-ba81-c4442cbe1ee4",
+      "silhouette_iou": 0.9377,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 1269.6,
+        "instances": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "status": 200,
+            "error_code": "",
+            "ms": 1269.6,
+            "request_id": "7fa95a90-b048-440b-8aef-b99aa3983de5"
+          }
+        ]
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "38666e39-61a7-4771-bc4f-9eb7e28edaac",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "fb6a0450-1dc4-4b3b-ba81-c4442cbe1ee4",
+      "provisional_verdict": "provisional_accepted",
+      "decision": "accepted",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the same (left/crank) end in both REFERENCE and LIVE crops and rod appears seated flush on both pins with no visible offset or lift.",
+      "model_confidence": 0.98,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 5132.37,
+        "prompt_tokens": 475,
+        "completion_tokens": 808,
+        "request_id": "chatcmpl-21324791d4d345b7a7339c65e5e52914",
+        "input": "paired_blinded_crops",
+        "finish_reason": "stop",
+        "max_tokens": 1536
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 1707.3,
+      "stage2_elapsed_ms": 5132.8,
+      "stage2_deadline_ms": 20000.0,
+      "gate_envelope_message_id": "6334bba8-6728-467c-9565-a69f73e87b84"
+    },
+    "total_ms": 6842.6
+  },
+  {
+    "run": 4,
+    "fixture": "checkpoint_pass_step2.png",
+    "stage1": {
+      "stage": 1,
+      "gate": "two_stage",
+      "decision": "pending",
+      "final": false,
+      "provisional_verdict": "provisional_accepted",
+      "provisional_reason_codes": [],
+      "stage1_elapsed_ms": 2283.5,
+      "stage1_within_deadline": true,
+      "session_id": "e57e2344-c175-4aa6-9174-75c492047355",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "5b4a6245-50ab-4676-b831-c3a5a47fc62c",
+      "silhouette_iou": 0.9378,
+      "witness_polarity_cosine": 1.0,
+      "witness_check_status": "measured",
+      "witness_error_px": 0.36,
+      "registration_rmse_px": 0.3915,
+      "calibration_valid": true,
+      "sam": {
+        "measured": true,
+        "latency_ms": 1859.4,
+        "instances": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 202.1,
+            "request_id": "e525a8e7-b4df-42d7-aa2e-472f9a79c1c4"
+          },
+          {
+            "attempt": 1,
+            "status": 404,
+            "error_code": "model_not_found",
+            "ms": 142.2,
+            "request_id": "4970ef56-b030-49f8-af73-5c9a876435ef"
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "error_code": "",
+            "ms": 964.2,
+            "request_id": "be3de6e6-5092-4714-beff-caae9261ae6b"
+          }
+        ]
+      },
+      "mode": "live"
+    },
+    "stage2": {
+      "stage": 2,
+      "gate": "two_stage",
+      "final": true,
+      "status": "committed",
+      "session_id": "e57e2344-c175-4aa6-9174-75c492047355",
+      "step_id": "attach-connecting-rod",
+      "observation_id": "5b4a6245-50ab-4676-b831-c3a5a47fc62c",
+      "provisional_verdict": "provisional_accepted",
+      "decision": "accepted",
+      "resolution": "confirmed",
+      "needs_review": false,
+      "reason_codes": [],
+      "model_finding": "consistent",
+      "model_reason": "Witness stripe is at the same (left) end in both REFERENCE and LIVE crops and the rod appears seated flush on both pins with no visible offset, lift, or misalignment.",
+      "model_confidence": 0.97,
+      "auditor": {
+        "model": "meta-models/muse-spark-open-1026",
+        "measured": true,
+        "latency_ms": 4786.09,
+        "prompt_tokens": 475,
+        "completion_tokens": 845,
+        "request_id": "chatcmpl-9e3e1a8bf21f4f7dad389b6b0787c75b",
+        "input": "paired_blinded_crops",
+        "finish_reason": "stop",
+        "max_tokens": 1536
+      },
+      "arbiter": {
+        "triggered": false,
+        "usage": {}
+      },
+      "stage1_elapsed_ms": 2283.5,
+      "stage2_elapsed_ms": 4786.7,
+      "stage2_deadline_ms": 20000.0,
+      "gate_envelope_message_id": "25500cfa-4779-4929-96a9-7ff6c6fc020d"
+    },
+    "total_ms": 7074.0
+  }
+]

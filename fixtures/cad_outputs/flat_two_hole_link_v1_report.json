@@ -38,5 +38,11 @@
   "max_abs_error_mm": 3e-05,
   "tolerance_mm": 0.1,
   "claim_scope": "dimensional_candidate_for_unloaded_test_rig",
-  "physical_fit_status": "not_tested"
+  "physical_fit_status": "not_tested",
+  "step_kind": "faceted_mesh_derived_step",
+  "step_topology": {
+    "ok": true,
+    "face_count": 1920,
+    "problems": []
+  }
 }

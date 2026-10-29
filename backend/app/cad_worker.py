@@ -34,7 +34,7 @@ from backend.app.schemas import (
     sha256_hex,
 )
 
-DEFAULT_CAD_OUTPUT_DIR = Path("/workspace/rewind/fixtures/cad_outputs")
+DEFAULT_CAD_OUTPUT_DIR = (Path(__file__).resolve().parents[2] / "fixtures/cad_outputs")
 
 
 @dataclass
@@ -55,6 +55,8 @@ class CadVerificationResult:
     tolerance_mm: float = 0.10
     claim_scope: str = "dimensional_candidate_for_unloaded_test_rig"
     physical_fit_status: str = "not_tested"
+    step_kind: str = "faceted_mesh_derived_step"
+    step_topology: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -245,7 +247,12 @@ def write_iso10303_21_step_file(
     thickness: float,
     hole_diameter: float,
 ) -> None:
-    """Write a standards-compliant ISO-10303-21 AP214 `.STEP` B-rep solid file for `flat_two_hole_link_v1`."""
+    """Write a *faceted, mesh-derived* ISO-10303-21 STEP (FACETED_BREP) for `flat_two_hole_link_v1`.
+
+    Every STL triangle becomes a POLY_LOOP face on its own PLANE. This is not an analytic B-rep:
+    the bores are faceted, not CYLINDRICAL_SURFACE entities. The named CARTESIAN_POINT/CIRCLE
+    entities are parameter annotations only and are not referenced by the shell topology.
+    """
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     R = round(outer_width / 2.0, 6)
     r_hole = round(hole_diameter / 2.0, 6)
@@ -290,10 +297,6 @@ def write_iso10303_21_step_file(
         f"#25 = CIRCLE('Hole_B_Profile',#23,{r_hole:.6f});",
         f"#26 = CIRCLE('End_Cap_A_Profile',#22,{R:.6f});",
         f"#27 = CIRCLE('End_Cap_B_Profile',#23,{R:.6f});",
-        f"#28 = CYLINDRICAL_SURFACE('Hole_A_Cylinder',#22,{r_hole:.6f});",
-        f"#29 = CYLINDRICAL_SURFACE('Hole_B_Cylinder',#23,{r_hole:.6f});",
-        f"#30 = CYLINDRICAL_SURFACE('End_Cap_A_Cylinder',#22,{R:.6f});",
-        f"#31 = CYLINDRICAL_SURFACE('End_Cap_B_Cylinder',#23,{R:.6f});",
     ]
 
     next_id = 100
@@ -313,9 +316,26 @@ def write_iso10303_21_step_file(
         face_id = next_id + 2
         next_id += 3
         p0, p1, p2 = vert_ent_ids[int(f0)], vert_ent_ids[int(f1)], vert_ent_ids[int(f2)]
+        a = np.asarray(mesh.vertices[int(f0)], dtype=float)
+        b = np.asarray(mesh.vertices[int(f1)], dtype=float)
+        c = np.asarray(mesh.vertices[int(f2)], dtype=float)
+        n = np.cross(b - a, c - a)
+        n_norm = float(np.linalg.norm(n))
+        if n_norm <= 0:
+            raise ValueError("degenerate triangle cannot be exported as a planar STEP face")
+        n = n / n_norm
+        ref = np.array([1.0, 0.0, 0.0]) if abs(n[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        xdir = ref - n * float(np.dot(ref, n))
+        xdir = xdir / float(np.linalg.norm(xdir))
+        nd_id, xd_id, ax_id, pl_id = next_id, next_id + 1, next_id + 2, next_id + 3
+        next_id += 4
+        lines.append(f"#{nd_id} = DIRECTION('',({n[0]:.9f},{n[1]:.9f},{n[2]:.9f}));")
+        lines.append(f"#{xd_id} = DIRECTION('',({xdir[0]:.9f},{xdir[1]:.9f},{xdir[2]:.9f}));")
+        lines.append(f"#{ax_id} = AXIS2_PLACEMENT_3D('',#{p0},#{nd_id},#{xd_id});")
+        lines.append(f"#{pl_id} = PLANE('',#{ax_id});")
         lines.append(f"#{loop_id} = POLY_LOOP('',(#{p0},#{p1},#{p2}));")
         lines.append(f"#{bound_id} = FACE_OUTER_BOUND('',#{loop_id},.T.);")
-        lines.append(f"#{face_id} = FACE_SURFACE('',(#{bound_id}),#28,.T.);")
+        lines.append(f"#{face_id} = FACE_SURFACE('',(#{bound_id}),#{pl_id},.T.);")
         face_ent_ids.append(face_id)
 
     shell_id = next_id
@@ -324,8 +344,8 @@ def write_iso10303_21_step_file(
     sdr_id = next_id + 3
     face_refs = ",".join(f"#{fid}" for fid in face_ent_ids)
     lines.append(f"#{shell_id} = CLOSED_SHELL('flat_two_hole_link_v1_shell',({face_refs}));")
-    lines.append(f"#{solid_id} = MANIFOLD_SOLID_BREP('flat_two_hole_link_v1_solid',#{shell_id});")
-    lines.append(f"#{shape_rep_id} = ADVANCED_BREP_SHAPE_REPRESENTATION('flat_two_hole_link_v1',(#{solid_id},#17),#13);")
+    lines.append(f"#{solid_id} = FACETED_BREP('flat_two_hole_link_v1_solid',#{shell_id});")
+    lines.append(f"#{shape_rep_id} = FACETED_BREP_SHAPE_REPRESENTATION('flat_two_hole_link_v1',(#{solid_id},#17),#13);")
     lines.append(f"#{sdr_id} = SHAPE_DEFINITION_REPRESENTATION(#8,#{shape_rep_id});")
     lines.append("ENDSEC;")
     lines.append("END-ISO-10303-21;")
@@ -452,6 +472,65 @@ def render_technical_drawing_svg_and_png(
     cv2.imwrite(str(png_path), img)
 
 
+def check_faceted_step_topology(step_text: str, expected_face_count: int, tol_mm: float = 1e-4) -> Dict[str, Any]:
+    """Structural check of a faceted STEP: references resolve, one closed shell owns every face,
+    face count equals the STL triangle count, every face lies on its own PLANE."""
+    ents: Dict[int, str] = {}
+    for m in re.finditer(r"^#(\d+)\s*=\s*(.*?);\s*$", step_text, flags=re.M):
+        ents[int(m.group(1))] = m.group(2)
+    problems: List[str] = []
+    for eid, body in ents.items():
+        for ref in re.findall(r"#(\d+)", body):
+            if int(ref) not in ents:
+                problems.append(f"dangling_reference:#{eid}->#{ref}")
+                break
+    faces = {eid: b for eid, b in ents.items() if b.startswith("FACE_SURFACE(")}
+    shells = [b for b in ents.values() if b.startswith("CLOSED_SHELL(")]
+    breps = [b for b in ents.values() if b.startswith("FACETED_BREP(") or b.startswith("MANIFOLD_SOLID_BREP(")]
+    if len(shells) != 1:
+        problems.append(f"closed_shell_count={len(shells)}")
+    if len(breps) != 1:
+        problems.append(f"brep_count={len(breps)}")
+    if len(faces) != expected_face_count:
+        problems.append(f"face_count={len(faces)} expected={expected_face_count}")
+    if shells:
+        shell_refs = {int(r) for r in re.findall(r"#(\d+)", shells[0])}
+        if shell_refs != set(faces):
+            problems.append("shell_faces_mismatch")
+
+    def _pt(eid: int) -> Optional[np.ndarray]:
+        body = ents.get(eid, "")
+        m = re.match(r"CARTESIAN_POINT\('[^']*',\(([^)]*)\)\)", body)
+        return np.array([float(x) for x in m.group(1).split(",")]) if m else None
+
+    def _dir(eid: int) -> Optional[np.ndarray]:
+        m = re.match(r"DIRECTION\('[^']*',\(([^)]*)\)\)", ents.get(eid, ""))
+        return np.array([float(x) for x in m.group(1).split(",")]) if m else None
+
+    off_plane = 0
+    for eid, body in faces.items():
+        refs = [int(r) for r in re.findall(r"#(\d+)", body)]
+        if len(refs) != 2 or not ents.get(refs[1], "").startswith("PLANE("):
+            problems.append(f"face_not_on_plane:#{eid}")
+            continue
+        bound = ents.get(refs[0], "")
+        loop_ref = re.findall(r"#(\d+)", bound)
+        loop = ents.get(int(loop_ref[0]), "") if loop_ref else ""
+        pts = [_pt(int(r)) for r in re.findall(r"#(\d+)", loop)]
+        ax = ents.get(int(re.findall(r"#(\d+)", ents[refs[1]])[0]), "")
+        ax_refs = [int(r) for r in re.findall(r"#(\d+)", ax)]
+        origin = _pt(ax_refs[0]) if ax_refs else None
+        normal = _dir(ax_refs[1]) if len(ax_refs) > 1 else None
+        if len(pts) < 3 or any(p is None for p in pts) or origin is None or normal is None:
+            problems.append(f"face_unresolved:#{eid}")
+            continue
+        if max(abs(float(np.dot(p - origin, normal))) for p in pts) > tol_mm:
+            off_plane += 1
+    if off_plane:
+        problems.append(f"faces_off_plane={off_plane}")
+    return {"ok": not problems, "face_count": len(faces), "problems": problems[:20]}
+
+
 def verify_generated_cad_artifacts(
     step_path: Path,
     stl_path: Path,
@@ -493,8 +572,10 @@ def verify_generated_cad_artifacts(
 
     # Parse ISO-10303-21 STEP file from disk to verify analytic/B-rep parameters independently
     step_text = step_path.read_text(encoding="utf-8")
-    if not step_text.startswith("ISO-10303-21;") or "CLOSED_SHELL" not in step_text or "MANIFOLD_SOLID_BREP" not in step_text:
+    if not step_text.startswith("ISO-10303-21;") or "CLOSED_SHELL" not in step_text:
         raise ValueError("STEP file missing required ISO-10303-21 B-rep entities")
+    step_topology = check_faceted_step_topology(step_text, expected_face_count=len(loaded_mesh.faces))
+    volume_rel_err = abs(vol_mm3 - theo_vol_mm3) / theo_vol_mm3 if theo_vol_mm3 > 0 else 1.0
 
     m_hb = re.search(r"CARTESIAN_POINT\('Hole_B_Center_Bottom',\(([0-9.+-]+),", step_text)
     m_top = re.search(r"CARTESIAN_POINT\('Hole_A_Center_Top',\([0-9.+-]+,[0-9.+-]+,([0-9.+-]+)\)\);", step_text)
@@ -541,12 +622,14 @@ def verify_generated_cad_artifacts(
     status = (
         "geometry_valid"
         if is_watertight and is_winding and max_abs_err <= tolerance_mm
+        and step_topology["ok"] and volume_rel_err <= 0.02
         else "rejected"
     )
 
     return CadVerificationResult(
         template_id="flat_two_hole_link_v1",
         status=status,
+        step_topology=step_topology,
         is_watertight=is_watertight,
         is_winding_consistent=is_winding,
         volume_mm3=round(vol_mm3, 2),
@@ -592,7 +675,9 @@ def generate_flat_two_hole_link_v1(
         pin_dia = float(measurement.get("pin_diameter", 8.0))
         clearance = float(measurement.get("diametral_clearance", 0.4))
         plane_id = str(measurement.get("plane_id", "mat_z0"))
-        unc_95 = float(measurement.get("uncertainty_95_mm", 0.25))
+        raw_unc = measurement.get("uncertainty_95_mm", None)
+        unc_95 = None if raw_unc is None else float(raw_unc)
+    dim_source = "calibrated_flat_scan" if unc_95 is not None else "manual_caliper"
 
     if plane_id != "mat_z0":
         raise ValueError(f"CAD generation requires plane_id='mat_z0', got {plane_id!r}")
@@ -675,14 +760,14 @@ def generate_flat_two_hole_link_v1(
             "hole_center_distance": {
                 "value_mm": hole_dist,
                 "uncertainty_95_mm": unc_95,
-                "source": "calibrated_flat_scan",
+                "source": dim_source,
                 "evidence_artifact_ids": [ev_art_uuid],
                 "plane_id": "mat_z0",
             },
             "outer_width": {
                 "value_mm": outer_w,
                 "uncertainty_95_mm": unc_95,
-                "source": "calibrated_flat_scan",
+                "source": dim_source,
                 "evidence_artifact_ids": [ev_art_uuid],
                 "plane_id": "mat_z0",
             },
@@ -696,7 +781,7 @@ def generate_flat_two_hole_link_v1(
             "pin_diameter": {
                 "value_mm": pin_dia,
                 "uncertainty_95_mm": unc_95,
-                "source": "calibrated_flat_scan",
+                "source": dim_source,
                 "evidence_artifact_ids": [ev_art_uuid],
                 "plane_id": "mat_z0",
             },

@@ -6,7 +6,7 @@ Outputs:
    - rewind_apriltag_mat_400x250mm.png (High-res 8 px/mm = 3200x2000 px)
    - rewind_apriltag_mat_400x250mm.svg (Exact 400x250mm vector SVG)
    - rewind_apriltag_mat_400x250mm.pdf (Exact 1:1 400x250mm printable PDF)
-   - rewind_apriltag_mat_letter_tiles.pdf (3-page US Letter tiled 1:1 printable PDF with alignment crosshairs)
+   - rewind_apriltag_mat_letter_tiles.pdf (4-page 2x2 US Letter tiled 1:1 printable PDF with alignment crosshairs)
    - rewind_slider_crank_cutouts_1to1.pdf (Exact 1:1 printable cutout templates for all 6 slider-crank parts)
 2. /workspace/rewind/fixtures/golden_rig/:
    - step_0_complete.png .. step_4_base.png (1280x800 perspective-warped overhead camera frames)
@@ -36,7 +36,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as pdf_canvas
 
-ROOT = Path("/workspace/rewind")
+ROOT = Path(__file__).resolve().parents[1]
 PRINTABLE_DIR = ROOT / "fixtures" / "printable"
 GOLDEN_DIR = ROOT / "fixtures" / "golden_rig"
 
@@ -520,6 +520,63 @@ def render_connecting_rod_reference_mask_cam_px() -> np.ndarray:
     return np.where(warped > 127, 255, 0).astype(np.uint8)
 
 
+LETTER_TILE_ORIGIN_MM = (12.0, 22.0)  # left, bottom margin of the image area on each page
+
+
+def letter_tile_layout() -> List[Dict[str, float]]:
+    """2x2 grid of exact 1:1 crops of the 400x250 mm mat (20 mm overlap) for landscape US Letter.
+
+    Every tile is drawn with ``scale == 1.0``: drawn width/height in mm equal the crop size in mm.
+    (External audit 2026-10-29, B3: the previous layout fit-to-page at 0.78.)
+    """
+    tiles: List[Dict[str, float]] = []
+    for row, (y0, y1) in enumerate(((0.0, 135.0), (115.0, 250.0))):
+        for col, (x0, x1) in enumerate(((0.0, 210.0), (190.0, 400.0))):
+            tiles.append({
+                "index": float(row * 2 + col + 1),
+                "x0_mm": x0, "x1_mm": x1, "y0_mm": y0, "y1_mm": y1,
+                "draw_w_mm": x1 - x0, "draw_h_mm": y1 - y0, "scale": 1.0,
+            })
+    return tiles
+
+
+def save_letter_tiles_pdf(mat_img: np.ndarray, tiled_pdf_path: Path) -> List[Dict[str, float]]:
+    page_w, page_h = letter[1], letter[0]  # landscape 279.4 x 215.9 mm
+    ct = pdf_canvas.Canvas(str(tiled_pdf_path), pagesize=(page_w, page_h))
+    ct.setTitle("REWIND Calibration Mat - US Letter 1:1 Tiled Print (2x2)")
+    ox, oy = LETTER_TILE_ORIGIN_MM
+    layout = letter_tile_layout()
+    for t in layout:
+        assert t["scale"] == 1.0
+        assert ox + t["draw_w_mm"] <= page_w / mm - 5 and oy + t["draw_h_mm"] <= page_h / mm - 12
+        crop = mat_img[
+            int(round(t["y0_mm"] * MAT_SCALE_PX_PER_MM)):int(round(t["y1_mm"] * MAT_SCALE_PX_PER_MM)),
+            int(round(t["x0_mm"] * MAT_SCALE_PX_PER_MM)):int(round(t["x1_mm"] * MAT_SCALE_PX_PER_MM)),
+        ]
+        tmp = tiled_pdf_path.parent / "_tmp_tile.png"
+        cv2.imwrite(str(tmp), crop)
+        ct.setFont("Helvetica-Bold", 9)
+        ct.drawString(ox * mm, page_h - 9 * mm,
+                      f"Tile {int(t['index'])} of 4: mat X={t['x0_mm']:.0f}..{t['x1_mm']:.0f} mm, "
+                      f"Y={t['y0_mm']:.0f}..{t['y1_mm']:.0f} mm. Print at 100% / Actual Size. Overlap 20 mm.")
+        ct.drawImage(ImageReader(str(tmp)), ox * mm, oy * mm,
+                     width=t["draw_w_mm"] * mm, height=t["draw_h_mm"] * mm)
+        tmp.unlink()
+        # 100 mm verification ruler under the image
+        ct.setStrokeColorRGB(0, 0, 0)
+        ct.setLineWidth(1.0)
+        ry = (oy - 10) * mm
+        ct.line(ox * mm, ry, (ox + 100) * mm, ry)
+        for k in range(0, 101, 10):
+            tick = 3 if k % 50 == 0 else 1.5
+            ct.line((ox + k) * mm, ry, (ox + k) * mm, ry + tick * mm)
+        ct.setFont("Helvetica", 7)
+        ct.drawString((ox + 102) * mm, ry, "100 mm ruler: measure before use; reject the print if not 100.0 mm")
+        ct.showPage()
+    ct.save()
+    return layout
+
+
 def save_printable_svg_and_pdfs(mat_img: np.ndarray) -> None:
     """Save 1:1 printable SVG, 400x250mm full-size PDF, US Letter tiled PDF, and 1:1 cutouts PDF."""
     PRINTABLE_DIR.mkdir(parents=True, exist_ok=True)
@@ -548,42 +605,9 @@ def save_printable_svg_and_pdfs(mat_img: np.ndarray) -> None:
     c.showPage()
     c.save()
 
-    # 3. US Letter Tiled 1:1 PDF (2 pages landscape 279.4 x 215.9 mm with overlap & registration crosshairs)
-    tiled_pdf_path = PRINTABLE_DIR / "rewind_apriltag_mat_letter_tiles.pdf"
-    page_w, page_h = letter[1], letter[0]  # Landscape US Letter: 279.4mm x 215.9mm
-    ct = pdf_canvas.Canvas(str(tiled_pdf_path), pagesize=(page_w, page_h))
-    ct.setTitle("REWIND Calibration Mat - US Letter 1:1 Tiled Print")
-    tiles = [
-        ("Tile 1 of 2 (Left Half: X=0..220mm) - Print at 100% / Actual Size", 0.0, 220.0),
-        ("Tile 2 of 2 (Right Half: X=180..400mm, splice at X=200mm) - Print at 100% / Actual Size", 180.0, 400.0),
-    ]
-    for title, x_start_mm, x_end_mm in tiles:
-        x1_px = int(round(x_start_mm * MAT_SCALE_PX_PER_MM))
-        x2_px = int(round(x_end_mm * MAT_SCALE_PX_PER_MM))
-        crop = mat_img[:, x1_px:x2_px]
-        tmp_crop_path = PRINTABLE_DIR / "_tmp_tile.png"
-        cv2.imwrite(str(tmp_crop_path), crop)
-        tile_w_mm = x_end_mm - x_start_mm
-        # Scale height if needed or place top/bottom with registration mark; here draw 1:1 crop of 220x190mm active area
-        ct.setFont("Helvetica-Bold", 9)
-        ct.drawString(12 * mm, (page_h - 10 * mm), title)
-        ct.drawImage(
-            ImageReader(str(tmp_crop_path)),
-            12 * mm,
-            8 * mm,
-            width=tile_w_mm * mm,
-            height=195 * mm,
-            preserveAspectRatio=True,
-        )
-        # Registration crosshair at X=200mm splice line
-        splice_x_pt = (12.0 + (200.0 - x_start_mm)) * mm
-        ct.setStrokeColorRGB(0.85, 0.1, 0.1)
-        ct.setDash(3, 3)
-        ct.line(splice_x_pt, 5 * mm, splice_x_pt, page_h - 14 * mm)
-        ct.showPage()
-        if tmp_crop_path.exists():
-            tmp_crop_path.unlink()
-    ct.save()
+    # 3. US Letter Tiled 1:1 PDF (2x2 landscape tiles, exact physical scale, overlap + rulers)
+    save_letter_tiles_pdf(mat_img, PRINTABLE_DIR / "rewind_apriltag_mat_letter_tiles.pdf")
+    page_w, page_h = letter[1], letter[0]
 
     # 4. 1:1 Printable Slider-Crank Cutouts Template PDF
     cutouts_pdf_path = PRINTABLE_DIR / "rewind_slider_crank_cutouts_1to1.pdf"

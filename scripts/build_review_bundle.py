@@ -20,7 +20,7 @@ import zipfile
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-REPO_ROOT = Path("/workspace/rewind").resolve()
+REPO_ROOT = Path(__file__).resolve().parents[1].resolve()
 WORKSPACE_ROOT = Path("/workspace").resolve()
 
 BUNDLE_MD_PATH = WORKSPACE_ROOT / "REWIND_ADVERSARIAL_REVIEW_BUNDLE.md"

@@ -20,7 +20,7 @@ import numpy as np
 
 from backend.app.schemas import make_envelope
 
-GOLDEN_META_PATH = Path("/workspace/rewind/fixtures/golden_rig/golden_metadata.json")
+GOLDEN_META_PATH = (Path(__file__).resolve().parents[2] / "fixtures/golden_rig/golden_metadata.json")
 
 # Default 400x250mm mat tag corner layout in mm (clockwise from top-left for each tag ID 0..3)
 DEFAULT_TAG_CORNERS_MM: Dict[int, List[List[float]]] = {
@@ -259,7 +259,7 @@ def build_calibration_envelope(
     poly_px = cv2.perspectiveTransform(mat_corners, H_mat_to_img)[0]
     valid_polygon_px = [[round(float(p[0]), 2), round(float(p[1]), 2)] for p in poly_px]
 
-    # Holdout 95th percentile error in mm (~0.25 mm/px on 1280x800 viewing 400mm)
+    # NOT a holdout measurement: proxy derived from the in-sample fit residual. Status stays "unvalidated".
     holdout_error_95_mm = round(max(0.05, cal.reprojection_rmse_px * 0.35), 4)
 
     payload = {
@@ -272,7 +272,10 @@ def build_calibration_envelope(
         "coordinate_space": "undistorted_source_image_px",
         "tag_dictionary": "APRILTAG_36h11",
         "printed_tag_side_mm": cal.printed_tag_side_mm,
-        "status": "validated" if cal.calibration_valid else "invalid",
+        # No measured intrinsics/distortion and no independent holdout capture exist yet, so this
+        # calibration can never be "validated" (external audit 2026-10-29, B1). K is a nominal
+        # placeholder, distortion is assumed zero, and holdout_error_95_mm is a fit-residual proxy.
+        "status": "unvalidated" if cal.calibration_valid else "invalid",
         "planes": [
             {
                 "plane_id": cal.plane_id,

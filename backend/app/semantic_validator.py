@@ -79,9 +79,38 @@ def assert_envelope_timestamps(envelope: Mapping[str, Any]) -> None:
         )
 
 
+GLIMMER_CONTEXT_ALLOWED_KEYS: frozenset[str] = frozenset(
+    {"observation_id", "frame_id", "part_id", "inspection_focus"}
+)
+_FORBIDDEN_SUBSTRINGS = ("mask", "iou", "geometry", "metric", "predicate", "decision", "verdict", "sam_", "expected_", "golden", "pass", "flipped", "fail")
+
+
+def _scan_forbidden(value: Any, path: str, found: list[str]) -> None:
+    if isinstance(value, Mapping):
+        for k, v in value.items():
+            key = str(k)
+            if key in FORBIDDEN_GLIMMER_CONTEXT_KEYS or any(t in key.lower() for t in _FORBIDDEN_SUBSTRINGS):
+                found.append(f"{path}{key}")
+            _scan_forbidden(v, f"{path}{key}.", found)
+    elif isinstance(value, (list, tuple, set)):
+        for i, v in enumerate(value):
+            _scan_forbidden(v, f"{path}[{i}].", found)
+
+
 def assert_glimmer_input_blinded(context: Mapping[str, Any]) -> None:
-    """Ensure Glimmer visual audit input context is strictly blinded from SAM/Geometry/Gate outputs."""
-    leaked = FORBIDDEN_GLIMMER_CONTEXT_KEYS.intersection(context.keys())
+    """Ensure Glimmer visual audit input context is strictly blinded from SAM/Geometry/Gate outputs.
+
+    Checks recursively (nested dicts/lists) and rejects non-string values for allowed keys and
+    fixture-filename leaks such as ``step2_flipped.png`` (external audit 2026-10-29, C4).
+    """
+    found: list[str] = []
+    _scan_forbidden(context, "", found)
+    for k, v in context.items():
+        if k in GLIMMER_CONTEXT_ALLOWED_KEYS and not isinstance(v, str):
+            found.append(f"{k}(non-string)")
+        if isinstance(v, str) and any(t in v.lower() for t in (".png", ".jpg", "flipped", "step2_pass", "golden")):
+            found.append(f"{k}(filename/label leak)")
+    leaked = sorted(set(found) | set(FORBIDDEN_GLIMMER_CONTEXT_KEYS.intersection(context.keys())))
     if leaked:
         raise SemanticValidationError(
             "GLIMMER_BLINDING_VIOLATION",
@@ -316,6 +345,10 @@ def validate_cycle_semantics(envelopes: Sequence[Mapping[str, Any]]) -> None:
     if len(checkpoint_envs) > 1:
         ref = checkpoint_envs[0]
         ref_cas = (
+            ref["session_id"],
+            ref["reference_sha256"],
+            ref["calibration_sha256"],
+            ref["policy_sha256"],
             ref["scene_version"],
             ref["plan_version"],
             ref["step_id"],
@@ -326,6 +359,10 @@ def validate_cycle_semantics(envelopes: Sequence[Mapping[str, Any]]) -> None:
         )
         for env in checkpoint_envs[1:]:
             cas = (
+                env["session_id"],
+                env["reference_sha256"],
+                env["calibration_sha256"],
+                env["policy_sha256"],
                 env["scene_version"],
                 env["plan_version"],
                 env["step_id"],
@@ -368,6 +405,38 @@ def validate_cycle_semantics(envelopes: Sequence[Mapping[str, Any]]) -> None:
                 )
 
     if gate_env is not None:
+        gate_payload = gate_env["payload"]
+        seg_env = by_stage.get("segmentation")
+        if gate_payload.get("decision") == "accepted":
+            # External audit 2026-10-29, A4: an accepted gate needs the full evidence chain.
+            missing = [n for n, e in (("segmentation", seg_env), ("geometry", geom_env), ("visual_audit", audit_env)) if e is None]
+            if missing:
+                raise SemanticValidationError(
+                    "ACCEPT_WITHOUT_EVIDENCE_CHAIN",
+                    f"Accepted gate_decision is missing upstream stages {missing}.",
+                )
+            links = (
+                ("segmentation_message_id", seg_env),
+                ("geometry_message_id", geom_env),
+                ("audit_message_id", audit_env),
+            )
+            parents = set(gate_env.get("parent_message_ids", []))
+            for key, env in links:
+                if gate_payload.get(key) != env["message_id"] or env["message_id"] not in parents:
+                    raise SemanticValidationError(
+                        "EVIDENCE_LINK_MISMATCH",
+                        f"Accepted gate_decision {key} does not reference the cycle's {env['payload_type']} message.",
+                    )
+            if geom_env["payload"].get("segmentation_message_id") not in (None, seg_env["message_id"]):
+                raise SemanticValidationError(
+                    "EVIDENCE_LINK_MISMATCH",
+                    "Geometry segmentation_message_id does not match the cycle's segmentation message.",
+                )
+            if audit_env["payload"]["model_output"].get("requires_new_view"):
+                raise SemanticValidationError(
+                    "ACCEPT_REQUIRES_NEW_VIEW",
+                    "Cannot accept when the visual audit requires a new view.",
+                )
         validate_gate_decision_semantics(
             gate_env,
             geometry_envelope=geom_env,

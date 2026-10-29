@@ -35,7 +35,7 @@ from backend.app.calibration import (
 )
 from backend.app.schemas import make_envelope
 
-GOLDEN_REF_MASK_PATH = Path("/workspace/rewind/fixtures/golden_rig/ref_mask_step2_connecting_rod.png")
+GOLDEN_REF_MASK_PATH = (Path(__file__).resolve().parents[2] / "fixtures/golden_rig/ref_mask_step2_connecting_rod.png")
 
 
 @dataclass
@@ -102,7 +102,7 @@ class FlatPartMeasurementResult:
 
 
 
-GOLDEN_REF_PASS_IMAGE_PATH = Path("/workspace/rewind/fixtures/golden_rig/checkpoint_pass_step2.png")
+GOLDEN_REF_PASS_IMAGE_PATH = (Path(__file__).resolve().parents[2] / "fixtures/golden_rig/checkpoint_pass_step2.png")
 
 
 @dataclass
@@ -455,11 +455,14 @@ def evaluate_elevated_checkpoint(
     if cal is None:
         cal = compute_planar_calibration(img_bgr, max_registration_rmse_px=max_registration_rmse_px)
 
+    reference_missing = False
     if reference_mask is None:
         if GOLDEN_REF_MASK_PATH.exists():
             reference_mask = cv2.imread(str(GOLDEN_REF_MASK_PATH), cv2.IMREAD_GRAYSCALE)
-        else:
-            reference_mask = extract_yellow_rod_mask_in_rig_zone(img_bgr)
+        if reference_mask is None:
+            # Never self-reference (external audit 2026-10-29, B1): a missing golden reference fails.
+            reference_missing = True
+            reference_mask = np.zeros(img_bgr.shape[:2], dtype=np.uint8)
 
     # Extract color-based full rod silhouette and combine with candidate_mask if provided
     hsv_rod_mask = extract_yellow_rod_mask_in_rig_zone(img_bgr)
@@ -471,12 +474,10 @@ def evaluate_elevated_checkpoint(
                 (img_bgr.shape[1], img_bgr.shape[0]),
                 interpolation=cv2.INTER_NEAREST,
             )
-        # If SAM returned a valid foreground mask, compute IoU using the union/refined mask
-        iou_sam, cov_sam = compute_binary_mask_iou(candidate_mask, reference_mask)
-        iou_hsv, cov_hsv = compute_binary_mask_iou(hsv_rod_mask, reference_mask)
-        mask_iou = max(iou_sam, iou_hsv)
-        visible_coverage = max(cov_sam, cov_hsv)
-        active_mask = hsv_rod_mask if iou_hsv >= iou_sam else candidate_mask
+        # The provider (SAM) mask is authoritative; the HSV heuristic can no longer rescue a bad
+        # SAM mask via max() (external audit 2026-10-29, B4).
+        mask_iou, visible_coverage = compute_binary_mask_iou(candidate_mask, reference_mask)
+        active_mask = candidate_mask
     else:
         mask_iou, visible_coverage = compute_binary_mask_iou(hsv_rod_mask, reference_mask)
         active_mask = hsv_rod_mask
@@ -507,6 +508,8 @@ def evaluate_elevated_checkpoint(
     detected_pivots_px, pivot_error_px = detect_rod_pivot_endpoints_px(active_mask, expected_pivots_px)
 
     reason_codes: List[str] = []
+    if reference_missing:
+        reason_codes.append("reference_missing")
     if not cal.calibration_valid or cal.registration_rmse_px > max_registration_rmse_px:
         reason_codes.append("registration_lost")
 

@@ -222,93 +222,87 @@ def _inspect_image_for_witness_and_seating(
     image_bytes_list: List[bytes],
     context: Mapping[str, Any],
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-    """Run deterministic multimodal visual inspection + CIE LAB witness polarity check on the frame."""
+    """Deterministic CIE LAB witness-polarity heuristic (NOT model inference).
+
+    Fail-closed (external audit 2026-10-29, C1): no image, an undecodable image, a too-small or
+    blank image, or no detectable rod all yield ``insufficient_evidence`` with
+    ``requires_new_view=True``. Seating is not measured by this heuristic and is reported as
+    ``None`` rather than asserted.
+    """
     obs_id = str(context.get("observation_id", "00000000-0000-4000-8000-000000000002"))
     frame_id = str(context.get("frame_id", "00000000-0000-4000-8000-000000000010"))
     part_id = str(context.get("part_id", "connecting-rod"))
 
-    witness_aligned = True
-    seating_flush = True
-    confidence = 0.94
-    failure_mode: Optional[str] = None
-    notes = (
-        "Yellow connecting rod is seated flush on crank and wrist pins with black/white witness stripe "
-        "aligned to WITNESS REF."
-    )
+    finding = "insufficient_evidence"
+    witness_aligned: Optional[bool] = None
+    seating_flush: Optional[bool] = None
+    confidence = 0.0
+    failure_mode: Optional[str] = "insufficient_evidence"
+    notes = "No usable image evidence; a new view is required."
+    region = [0, 0, 1, 1]
 
+    img_bgr = None
     if image_bytes_list:
-        arr = np.frombuffer(image_bytes_list[0], dtype=np.uint8)
-        img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img_bgr is not None and img_bgr.shape[0] >= 200 and img_bgr.shape[1] >= 300:
-            # 1. Try illumination-invariant CIE LAB witness polarity along the yellow connecting rod
-            rod_mask = extract_yellow_rod_mask_in_rig_zone(img_bgr)
-            w_live = _extract_witness_centroid_lab(img_bgr, rod_mask)
-            if w_live is not None and int(np.count_nonzero(rod_mask)) > 200:
-                m_live = cv2.moments((rod_mask > 0).astype(np.uint8))
-                cx_rod = float(m_live["m10"] / max(m_live["m00"], 1.0))
-                # If reference image is provided as second image, compare witness vector direction
-                if len(image_bytes_list) >= 2:
-                    arr_ref = np.frombuffer(image_bytes_list[1], dtype=np.uint8)
-                    ref_bgr = cv2.imdecode(arr_ref, cv2.IMREAD_COLOR)
-                    if ref_bgr is not None:
-                        ref_mask = extract_yellow_rod_mask_in_rig_zone(ref_bgr)
-                        w_ref = _extract_witness_centroid_lab(ref_bgr, ref_mask)
+        try:
+            arr = np.frombuffer(image_bytes_list[0], dtype=np.uint8)
+            img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        except Exception:
+            img_bgr = None
+    if img_bgr is not None and img_bgr.shape[0] >= 200 and img_bgr.shape[1] >= 300 and float(np.std(img_bgr)) >= 2.0:
+        h, w = img_bgr.shape[:2]
+        rod_mask = extract_yellow_rod_mask_in_rig_zone(img_bgr)
+        w_live = _extract_witness_centroid_lab(img_bgr, rod_mask)
+        if w_live is not None and int(np.count_nonzero(rod_mask)) > 200:
+            ys, xs = np.where(rod_mask > 0)
+            region = [
+                max(0, int(xs.min())), max(0, int(ys.min())),
+                min(w - 1, int(xs.max())), min(h - 1, int(ys.max())),
+            ]
+            m_live = cv2.moments((rod_mask > 0).astype(np.uint8))
+            cx_rod = float(m_live["m10"] / max(m_live["m00"], 1.0))
+            witness_aligned = bool(float(w_live[0]) < cx_rod)
+            if len(image_bytes_list) >= 2:
+                ref_bgr = cv2.imdecode(np.frombuffer(image_bytes_list[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+                if ref_bgr is not None:
+                    ref_mask = extract_yellow_rod_mask_in_rig_zone(ref_bgr)
+                    w_ref = _extract_witness_centroid_lab(ref_bgr, ref_mask)
+                    if w_ref is not None and int(np.count_nonzero(ref_mask)) > 200:
                         m_ref = cv2.moments((ref_mask > 0).astype(np.uint8))
                         cx_ref = float(m_ref["m10"] / max(m_ref["m00"], 1.0))
-                        if w_ref is not None:
-                            witness_aligned = bool((float(w_live[0]) - cx_rod) * (float(w_ref[0]) - cx_ref) > 0)
-                        else:
-                            witness_aligned = bool(float(w_live[0]) < cx_rod)
-                    else:
-                        witness_aligned = bool(float(w_live[0]) < cx_rod)
-                else:
-                    # Canonical WITNESS REF is on the left crank pin end (x_witness < x_rod_centroid)
-                    witness_aligned = bool(float(w_live[0]) < cx_rod)
-            else:
-                # Scale-aware ROI fallback around left crank pin witness zone
-                h, w = img_bgr.shape[:2]
-                y1, y2 = int(round(h * 0.36)), int(round(h * 0.41))
-                x1, x2 = int(round(w * 0.355)), int(round(w * 0.387))
-                roi = img_bgr[y1:y2, x1:x2]
-                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                has_dark = bool(np.any(gray < 65))
-                has_white = bool(np.any(gray > 215))
-                witness_aligned = bool(has_dark and has_white)
-
-            if not witness_aligned:
-                confidence = 0.92
-                failure_mode = "witness_mark_misaligned"
+                        witness_aligned = bool((float(w_live[0]) - cx_rod) * (float(w_ref[0]) - cx_ref) > 0)
+            if witness_aligned:
+                finding, confidence, failure_mode = "consistent", 0.9, None
                 notes = (
-                    "Yellow connecting rod body is present on pins, but the black/white witness stripe "
-                    "is flipped 180 degrees to the opposite end away from WITNESS REF."
+                    "Heuristic: witness stripe lies on the WITNESS REF (crank) end of the yellow rod. "
+                    "Seating was not measured."
                 )
+            else:
+                finding, confidence, failure_mode = "mismatch", 0.9, "witness_mark_misaligned"
+                notes = (
+                    "Heuristic: yellow rod present, but the witness stripe is at the end opposite WITNESS REF."
+                )
+        else:
+            notes = "Image decoded but no yellow rod / witness stripe was detected; a new view is required."
 
-    finding = "consistent" if (witness_aligned and seating_flush) else "mismatch"
-    contradicted = [] if finding == "consistent" else ["witness-stripe-aligned"]
-
+    contradicted = ["witness-stripe-aligned"] if finding == "mismatch" else []
     schema_valid_output: Dict[str, Any] = {
         "observation_id": obs_id,
         "finding": finding,
-        "observations": [
-            {
-                "frame_id": frame_id,
-                "region_xyxy_px": [385, 280, 840, 336],
-                "statement": notes,
-            }
-        ],
+        "observations": [{"frame_id": frame_id, "region_xyxy_px": region, "statement": notes}],
         "contradicted_predicate_ids": contradicted,
-        "requires_new_view": False,
+        "requires_new_view": finding == "insufficient_evidence",
     }
     validate_glimmer_output(schema_valid_output)
 
     structured_verdict: Dict[str, Any] = {
-        "verdict": "pass" if finding == "consistent" else "fail",
+        "verdict": {"consistent": "pass", "mismatch": "fail"}.get(finding, "unknown"),
         "confidence": confidence,
         "observed_part_id": part_id,
         "witness_mark_aligned": witness_aligned,
         "seating_flush": seating_flush,
         "failure_mode": failure_mode,
         "notes": notes,
+        "inference_kind": "deterministic_heuristic",
     }
     return schema_valid_output, structured_verdict
 

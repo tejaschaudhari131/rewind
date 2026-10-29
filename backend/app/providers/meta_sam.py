@@ -31,7 +31,7 @@ class SamDetectedInstance:
     mask_token: str
     crop_mask: np.ndarray
     full_frame_mask: np.ndarray
-    confidence: float
+    confidence: float | None
     area_px: int
     centroid_xy_px: tuple[float, float]
     principal_angle_deg: float
@@ -65,12 +65,12 @@ class SamDetectedInstance:
             "sam_response_id": provider_response_id,
             "sam_track_id": track_int,
             "part_id": self.part_id.replace("_", "-"),
-            "identity_status": "confirmed" if self.confidence >= 0.65 else "provisional",
+            "identity_status": "confirmed" if (self.confidence is not None and self.confidence >= 0.65) else "provisional",
             "bbox_xyxy_inclusive_px": [int(v) for v in self.box_xyxy_px],
             "mask": m_art,
             "crop": c_art,
             "mask_encoding": "full_frame_binary_png_0_255",
-            "provider_mask_confidence": round(float(self.confidence), 4),
+            "provider_mask_confidence": round(float(self.confidence), 4) if self.confidence is not None else 0.0,
         }
 
 
@@ -144,6 +144,10 @@ def compute_mask_moments(binary_mask: np.ndarray) -> tuple[int, tuple[float, flo
     return area, (cx, cy), float(np.degrees(angle_rad))
 
 
+class SamDecodeError(ValueError):
+    """Raised when provider SAM output is non-empty but malformed (distinct from a valid zero-match)."""
+
+
 def decode_sam_token_string(
     raw_text: str,
     *,
@@ -159,6 +163,11 @@ def decode_sam_token_string(
     parser = video_segmentation_format().create_parser()
     parser.push(raw_text if raw_text.endswith("\n") else raw_text + "\n")
     finish = parser.finish(CompletedOutcome())
+    errors = [d for d in getattr(finish.result, "diagnostics", ()) if getattr(d, "severity", "") == "error"]
+    if errors:
+        raise SamDecodeError(f"Malformed SAM output: {[getattr(d, 'code', '?') for d in errors]}")
+    if not any(isinstance(r, SegmentationMaskRecord) for r in finish.result.records):
+        raise SamDecodeError("Non-empty SAM output contained no mask records")
     for rec in finish.result.records:
         if not isinstance(rec, SegmentationMaskRecord):
             continue
@@ -174,6 +183,14 @@ def decode_sam_token_string(
         x2_incl = max(x1, x2_excl - 1)
         y2_incl = max(y1, y2_excl - 1)
 
+        if (
+            rec.mask.width <= 0 or rec.mask.height <= 0
+            or x1 < 0 or y1 < 0
+            or x1 + rec.mask.width > image_width_px or y1 + rec.mask.height > image_height_px
+        ):
+            raise SamDecodeError(
+                f"SAM mask {rec.mask.width}x{rec.mask.height}@({x1},{y1}) does not fit image {image_width_px}x{image_height_px}"
+            )
         full_mask = np.zeros((image_height_px, image_width_px), dtype=np.uint8)
         cy1 = max(0, min(image_height_px, y1))
         cy2 = max(0, min(image_height_px, y1 + rec.mask.height))
@@ -182,7 +199,7 @@ def decode_sam_token_string(
         full_mask[cy1:cy2, cx1:cx2] = crop_u8[: (cy2 - cy1), : (cx2 - cx1)]
 
         area, centroid, angle_deg = compute_mask_moments(full_mask)
-        conf = float(rec.confidence) if rec.confidence is not None else 1.0
+        conf = float(rec.confidence) if rec.confidence is not None else None
         frame_idx = int(rec.frame.frame_index) if rec.frame is not None else 0
         mask_token_str = f"x=0;y=0;data={rec.mask.height},{rec.mask.width},{rec.mask.payload}"
         instances.append(
@@ -229,14 +246,24 @@ def encode_mask_png_bytes(mask: np.ndarray) -> bytes:
 def format_multi_box_prompt(
     boxes_xyxy: Sequence[tuple[int, int, int, int]],
     *,
+    image_size: tuple[int, int],
     frame_index: int = 0,
 ) -> str:
-    """Format an explicit multi-object `<0f>1<|box;...|>,2<|box;...|>` SAM 3.1 prompt."""
-    parts = [
-        f"{idx}<|box;{int(x1)},{int(y1)},{int(x2)},{int(y2)}|>"
+    """Format a multi-object box prompt with the official ``meta_sam_parser.build_object_prompt``.
+
+    ``boxes_xyxy`` are INCLUSIVE pixel boxes; they are converted to the library's half-open bounds.
+    ``image_size`` is ``(width, height)``; out-of-range boxes raise ``ObjectPromptError``.
+    """
+    from meta_sam_parser import FramePrompt, PromptBox, PromptObject, build_object_prompt
+
+    objects = [
+        PromptObject(
+            id=idx,
+            prompts=[FramePrompt(frame=frame_index, box=PromptBox(int(x1), int(y1), int(x2) + 1, int(y2) + 1))],
+        )
         for idx, (x1, y1, x2, y2) in enumerate(boxes_xyxy, start=1)
     ]
-    return f"<{frame_index}f>" + ",".join(parts)
+    return build_object_prompt(size=(int(image_size[0]), int(image_size[1])), objects=objects)
 
 
 class MetaSamClient:
@@ -345,6 +372,7 @@ class MetaSamClient:
         last_resp_id = "resp_sam_batch"
         last_req_id = "req_sam_batch"
         total_latency_ms = 0.0
+        per_prompt: list[dict[str, Any]] = []
 
         async with build_httpx_client() as shared_client:
             sub = MetaSamClient(client=shared_client)
@@ -355,12 +383,15 @@ class MetaSamClient:
                     part_id=part_id,
                     include_confidence=include_confidence,
                 )
+                per_prompt.append({"part_id": part_id, "response_id": res.provider_response_id,
+                                   "request_id": res.provider_request_id, "instances": len(res.instances)})
                 last_resp_id = res.provider_response_id
                 last_req_id = res.provider_request_id
                 total_latency_ms += res.latency_ms
                 raw_texts.append(res.raw_output_text)
-                for idx, inst in enumerate(res.instances):
-                    inst.sam_track_id = f"{part_id}_{inst.sam_track_id}_{idx}"
+                for inst in res.instances:
+                    # Globally unique trailing index so contract sam_track_id ints never collide.
+                    inst.sam_track_id = f"{part_id}_{inst.sam_track_id}_{len(all_instances)}"
                     all_instances.append(inst)
 
         return SamSegmentationResult(
@@ -371,4 +402,5 @@ class MetaSamClient:
             raw_output_text="\n".join(raw_texts),
             latency_ms=round(total_latency_ms, 2),
             instances=all_instances,
+            usage={"per_prompt_responses": per_prompt},
         )

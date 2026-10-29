@@ -177,12 +177,13 @@ class ModalGlimmerClient:
         latency_ms = (time.perf_counter() - t0) * 1000.0
         parsed = json.loads(out_text)
 
-        # Deterministically pin caller's exact IDs so LLM UUID hyphen typos never break CAS
-        parsed["observation_id"] = obs_id
-        if isinstance(parsed.get("observations"), list):
-            for obs_item in parsed["observations"]:
-                if isinstance(obs_item, dict):
-                    obs_item["frame_id"] = frame_id
+        # Never rewrite model-emitted IDs (external audit 2026-10-29): a mismatched observation or
+        # frame binding means the output cannot be attributed to this observation -> fail closed.
+        if parsed.get("observation_id") != obs_id:
+            raise ValueError("Glimmer output observation_id does not match the requested observation")
+        for obs_item in parsed.get("observations") or []:
+            if not isinstance(obs_item, dict) or obs_item.get("frame_id") != frame_id:
+                raise ValueError("Glimmer output frame_id does not match the requested frame")
         schema_props = glimmer_schema.get("properties", {})
         if "step_id" in schema_props and "step_id" in blinded_context:
             parsed["step_id"] = str(blinded_context["step_id"])

@@ -31,6 +31,21 @@ AUDIT_PROMPT = (
 )
 
 
+# Furniture profile: neutral wording. The model is NOT told which answer is expected, only what to compare.
+FURNITURE_AUDIT_PROMPT = (
+    "You are a blinded visual QA auditor for a flat-pack furniture assembly step. "
+    "Image 1 is a REFERENCE crop of a panel as it should be placed; image 2 is a LIVE crop of the same panel. "
+    "Compare the two: which face of the panel is visible (are pre-drilled holes visible on the visible face or not?), "
+    "and at which end of the finished front edge any colored tape strip sits. "
+    "Decide whether the LIVE panel shows the same face and the same orientation as the REFERENCE. "
+    "If the images do not let you tell, say insufficient_evidence. "
+    "Return ONLY JSON: {\"finding\": \"consistent\"|\"mismatch\"|\"insufficient_evidence\", "
+    "\"holes_visible_live\": bool|null, \"same_orientation\": bool|null, \"confidence\": 0..1, \"statement\": str}"
+)
+
+AUDIT_PROMPTS = {"slider_crank": AUDIT_PROMPT, "furniture_panel": FURNITURE_AUDIT_PROMPT}
+
+
 def _to_data_url(src: bytes | Path | str) -> str:
     raw = Path(src).read_bytes() if isinstance(src, (Path, str)) else bytes(src)
     return "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
@@ -50,13 +65,16 @@ class BasetenVisionAuditor:
         reference_image: bytes | Path | str | None,
         blinded_context: Mapping[str, Any],
         client: httpx.AsyncClient | None = None,
+        audit_profile: str = "slider_crank",
     ) -> GlimmerAuditResult:
         assert_glimmer_input_blinded(blinded_context)
+        if audit_profile not in AUDIT_PROMPTS:
+            raise ValueError(f"unknown audit_profile {audit_profile!r}")
         if not self.api_key:
             raise RuntimeError("BASETEN_API_KEY not configured")
         obs_id = str(blinded_context.get("observation_id", "00000000-0000-4000-8000-000000000002"))
         frame_id = str(blinded_context.get("frame_id", "frame-000120"))
-        parts: list[dict[str, Any]] = [{"type": "text", "text": AUDIT_PROMPT}]
+        parts: list[dict[str, Any]] = [{"type": "text", "text": AUDIT_PROMPTS[audit_profile]}]
         if reference_image is not None:
             parts.append({"type": "image_url", "image_url": {"url": _to_data_url(reference_image)}})
         parts.append({"type": "image_url", "image_url": {"url": _to_data_url(current_image)}})
@@ -90,7 +108,9 @@ class BasetenVisionAuditor:
             "finding": finding,
             "observations": [{"frame_id": frame_id, "region_xyxy_px": [0, 0, 1, 1],
                               "statement": str(parsed.get("statement", ""))[:500] or finding}],
-            "contradicted_predicate_ids": ["witness-stripe-aligned"] if finding == "mismatch" else [],
+            "contradicted_predicate_ids": (
+                [("panel-face-orientation" if audit_profile == "furniture_panel" else "witness-stripe-aligned")]
+                if finding == "mismatch" else []),
             "requires_new_view": finding == "insufficient_evidence",
         }
         validate_glimmer_output(audit)

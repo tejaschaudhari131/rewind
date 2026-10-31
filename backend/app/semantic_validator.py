@@ -108,7 +108,7 @@ def assert_glimmer_input_blinded(context: Mapping[str, Any]) -> None:
     for k, v in context.items():
         if k in GLIMMER_CONTEXT_ALLOWED_KEYS and not isinstance(v, str):
             found.append(f"{k}(non-string)")
-        if isinstance(v, str) and any(t in v.lower() for t in (".png", ".jpg", "flipped", "step2_pass", "golden")):
+        if isinstance(v, str) and any(t in v.lower() for t in (".png", ".jpg", "flipped", "step2_pass", "golden", "holes_out", "ikea_")):
             found.append(f"{k}(filename/label leak)")
     leaked = sorted(set(found) | set(FORBIDDEN_GLIMMER_CONTEXT_KEYS.intersection(context.keys())))
     if leaked:

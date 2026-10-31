@@ -909,3 +909,181 @@ def build_measurement_record_envelope(
         kwargs["observation_id"] = observation_id
     kwargs.update(extra_env_kwargs)
     return make_envelope(**kwargs)
+
+
+# ---------------------------------------------------------------------------------------------
+# Furniture reframe: flat-pack panel witnesses (DETERMINISTIC_LOCAL pre-checks, never a model).
+# Every check returns status "pass" | "fail" | "insufficient_evidence" and fails closed: anything
+# it cannot measure is insufficient_evidence, never pass.
+# ---------------------------------------------------------------------------------------------
+
+_DEFAULT_TAPE_HSV = ((95, 120, 60), (130, 255, 255))
+
+
+def extract_panel_mask(image_bgr: np.ndarray, *, min_area_frac: float = 0.03) -> Optional[np.ndarray]:
+    """Largest bright, roughly rectangular region (the panel). Returns uint8 mask or None."""
+    if image_bgr is None or image_bgr.size == 0:
+        return None
+    L = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)[:, :, 0]
+    L = cv2.GaussianBlur(L, (5, 5), 0)
+    _, th = cv2.threshold(L, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    c = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(c)
+    frame_area = image_bgr.shape[0] * image_bgr.shape[1]
+    if area < min_area_frac * frame_area or area > 0.90 * frame_area:
+        return None  # nothing found, or a uniform frame (no foreground/background contrast)
+    if float(L.max()) - float(L.min()) < 25:
+        return None
+    (_, _), (rw, rh), _ = cv2.minAreaRect(c)
+    if rw * rh <= 0 or area / (rw * rh) < 0.80:
+        return None
+    mask = np.zeros(image_bgr.shape[:2], np.uint8)
+    cv2.drawContours(mask, [c], -1, 255, thickness=cv2.FILLED)
+    return mask
+
+
+def _tape_mask(image_bgr: np.ndarray, hsv_lo=None, hsv_hi=None) -> np.ndarray:
+    lo, hi = (hsv_lo or _DEFAULT_TAPE_HSV[0]), (hsv_hi or _DEFAULT_TAPE_HSV[1])
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    return cv2.inRange(hsv, np.array(lo, np.uint8), np.array(hi, np.uint8))
+
+
+def panel_measurability(image_bgr: np.ndarray, panel_mask: Optional[np.ndarray]) -> Dict[str, Any]:
+    """Is the panel sharp and bright enough to judge its face? (motion blur / dim light -> not measurable)."""
+    if panel_mask is None:
+        return {"measurable": False, "reason": "panel_not_found"}
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    x, y, w, h = cv2.boundingRect(panel_mask)
+    pad = 12
+    roi = gray[max(0, y - pad):y + h + pad, max(0, x - pad):x + w + pad].astype(np.float32)
+    gx = cv2.Sobel(roi, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(roi, cv2.CV_32F, 0, 1, ksize=3)
+    sharp = float(np.percentile(np.hypot(gx, gy), 99.5))
+    mean_L = float(np.mean(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)[:, :, 0][panel_mask > 0]))
+    if mean_L < 110.0:
+        return {"measurable": False, "reason": "panel_too_dark", "edge_sharpness": sharp, "panel_mean_L": mean_L}
+    if sharp < 120.0:
+        return {"measurable": False, "reason": "panel_blurred", "edge_sharpness": sharp, "panel_mean_L": mean_L}
+    return {"measurable": True, "edge_sharpness": round(sharp, 1), "panel_mean_L": round(mean_L, 1)}
+
+
+def count_panel_holes(image_bgr: np.ndarray, panel_mask: np.ndarray, *, min_area: int = 20,
+                      max_area: int = 2500, tape_hsv_lo=None, tape_hsv_hi=None) -> Dict[str, Any]:
+    """Count dark, roughly circular blobs (cam-lock / dowel / shelf-pin holes) on the visible panel face."""
+    inner = cv2.erode(panel_mask, np.ones((15, 15), np.uint8))
+    tape = cv2.dilate(_tape_mask(image_bgr, tape_hsv_lo, tape_hsv_hi), np.ones((9, 9), np.uint8))
+    L = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)[:, :, 0].astype(np.float32)
+    face_L = float(np.median(L[inner > 0])) if np.count_nonzero(inner) else 0.0
+    dark = ((L < face_L - 45.0) & (inner > 0) & (tape == 0)).astype(np.uint8) * 255
+    n, labels, stats, cents = cv2.connectedComponentsWithStats(dark, 8)
+    holes = []
+    for i in range(1, n):
+        a = int(stats[i, cv2.CC_STAT_AREA])
+        if a < min_area or a > max_area:
+            continue
+        w, h = stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT]
+        if min(w, h) / max(w, h) < 0.6 or a / float(w * h) < 0.55:
+            continue
+        holes.append([round(float(cents[i][0]), 1), round(float(cents[i][1]), 1), a])
+    return {"hole_count": len(holes), "holes_px": holes, "face_median_L": round(face_L, 1)}
+
+
+def check_hole_pattern_witness(reference_bgr: np.ndarray, live_bgr: np.ndarray,
+                               params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Cam-lock / dowel hole-face check: are the pre-drilled holes visible on the same face as the reference?
+
+    pass  : reference shows >= min_reference_holes and live shows >= pass_ratio * reference count
+    fail  : panel measurable, reference has holes, live face shows none
+    insufficient_evidence: anything else (no panel, blurred/dark, too few reference holes, partial count)
+    """
+    p = {"min_reference_holes": 2, "pass_ratio": 0.6, "min_hole_area_px": 20, "max_hole_area_px": 2500}
+    p.update(params or {})
+    out: Dict[str, Any] = {"check": "hole_pattern_face", "producer": "DETERMINISTIC_LOCAL", "measured": True}
+    ref_mask, live_mask = extract_panel_mask(reference_bgr), extract_panel_mask(live_bgr)
+    ref_m, live_m = panel_measurability(reference_bgr, ref_mask), panel_measurability(live_bgr, live_mask)
+    out["reference_measurability"], out["live_measurability"] = ref_m, live_m
+    if not ref_m["measurable"] or not live_m["measurable"]:
+        out.update(status="insufficient_evidence", reason="reference_" + ref_m.get("reason", "ok")
+                   if not ref_m["measurable"] else "live_" + live_m["reason"])
+        return out
+    kw = dict(min_area=int(p["min_hole_area_px"]), max_area=int(p["max_hole_area_px"]))
+    ref_h, live_h = count_panel_holes(reference_bgr, ref_mask, **kw), count_panel_holes(live_bgr, live_mask, **kw)
+    out["reference_hole_count"], out["live_hole_count"] = ref_h["hole_count"], live_h["hole_count"]
+    out["live_holes_px"] = live_h["holes_px"]
+    if ref_h["hole_count"] < int(p["min_reference_holes"]):
+        out.update(status="insufficient_evidence", reason="reference_has_too_few_holes")
+    elif live_h["hole_count"] >= float(p["pass_ratio"]) * ref_h["hole_count"]:
+        out.update(status="pass", reason="hole_face_matches_reference")
+    elif live_h["hole_count"] == 0:
+        out.update(status="fail", reason="holes_not_visible_panel_face_flipped")
+    else:
+        out.update(status="insufficient_evidence", reason="partial_hole_count_ambiguous")
+    return out
+
+
+def _tape_polarity_vector(image_bgr: np.ndarray, panel_mask: np.ndarray, p: Dict[str, Any]) -> Optional[np.ndarray]:
+    tape = _tape_mask(image_bgr, p.get("hsv_lo"), p.get("hsv_hi"))
+    near = cv2.dilate(panel_mask, np.ones((21, 21), np.uint8))
+    tape = cv2.bitwise_and(tape, near)
+    if np.count_nonzero(tape) < int(p.get("min_area_px", 300)):
+        return None
+    tm, pm = cv2.moments(tape, True), cv2.moments(panel_mask, True)
+    v = np.array([tm["m10"] / tm["m00"] - pm["m10"] / pm["m00"], tm["m01"] / tm["m00"] - pm["m01"] / pm["m00"]])
+    n = float(np.linalg.norm(v))
+    return None if n < 1e-6 else v / n
+
+
+def check_tape_edge_witness(reference_bgr: np.ndarray, live_bgr: np.ndarray,
+                            params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Tape-strip polarity on the finished front edge: same polarity-cosine idea as the rod witness stripe.
+
+    The cosine between (panel centroid -> tape centroid) in reference and live must be >= min_polarity_cosine.
+    Missing tape or panel -> insufficient_evidence (fail closed)."""
+    p = {"min_polarity_cosine": 0.5}
+    p.update(params or {})
+    out: Dict[str, Any] = {"check": "tape_edge_polarity", "producer": "DETERMINISTIC_LOCAL", "measured": True}
+    ref_mask, live_mask = extract_panel_mask(reference_bgr), extract_panel_mask(live_bgr)
+    if ref_mask is None or live_mask is None:
+        out.update(status="insufficient_evidence", reason="panel_not_found", polarity_cosine=None)
+        return out
+    live_m = panel_measurability(live_bgr, live_mask)
+    if not live_m["measurable"]:
+        out.update(status="insufficient_evidence", reason="live_" + live_m["reason"], polarity_cosine=None)
+        return out
+    vr, vl = _tape_polarity_vector(reference_bgr, ref_mask, p), _tape_polarity_vector(live_bgr, live_mask, p)
+    if vr is None or vl is None:
+        out.update(status="insufficient_evidence", reason="tape_not_found", polarity_cosine=None)
+        return out
+    cos = float(np.dot(vr, vl))
+    out["polarity_cosine"] = round(cos, 4)
+    if cos >= float(p["min_polarity_cosine"]):
+        out.update(status="pass", reason="tape_edge_matches_reference")
+    elif cos <= -float(p["min_polarity_cosine"]):
+        out.update(status="fail", reason="tape_edge_reversed")
+    else:
+        out.update(status="insufficient_evidence", reason="tape_polarity_ambiguous")
+    return out
+
+
+def panel_mask_iou(reference_bgr: np.ndarray, live_bgr: np.ndarray) -> Optional[float]:
+    a, b = extract_panel_mask(reference_bgr), extract_panel_mask(live_bgr)
+    if a is None or b is None:
+        return None
+    return round(compute_binary_mask_iou(a, b)[0], 4)
+
+
+def crop_panel_png(image_bgr: np.ndarray, pad: int = 24, max_side: int = 640) -> Optional[bytes]:
+    m = extract_panel_mask(image_bgr)
+    if m is None:
+        return None
+    x, y, w, h = cv2.boundingRect(m)
+    crop = image_bgr[max(0, y - pad):y + h + pad, max(0, x - pad):x + w + pad]
+    s = max_side / max(crop.shape[:2])
+    if s < 1:
+        crop = cv2.resize(crop, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".png", crop)
+    return buf.tobytes() if ok else None

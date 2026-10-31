@@ -1,0 +1,28 @@
+{
+  "profile": "furniture_panel",
+  "product": "generic flat-pack cabinet/bookshelf (synthetic fixtures until real footage lands)",
+  "synthetic": true,
+  "total_steps": 8,
+  "steps": [
+    {
+      "step_id": "step-3-left-side-panel",
+      "step_number": 3,
+      "title": "Left side panel, holes facing in",
+      "part_label": "Left side panel",
+      "sam_concept_prompt": "wooden panel",
+      "sam_secondary_concept": "cam lock hole",
+      "reference_image": "fixtures/ikea/reference_step3.png",
+      "audit_profile": "furniture_panel",
+      "witness": {
+        "hole_pattern": {"min_reference_holes": 2, "pass_ratio": 0.6, "min_hole_area_px": 20, "max_hole_area_px": 2500},
+        "tape_edge": {"hsv_lo": [95, 120, 60], "hsv_hi": [130, 255, 255], "min_area_px": 300, "min_polarity_cosine": 0.5}
+      },
+      "panel_iou_min": 0.80
+    }
+  ],
+  "scenarios": {
+    "ikea_pass_step3": "fixtures/ikea/checkpoint_pass_step3.png",
+    "ikea_fail_holes_out": "fixtures/ikea/checkpoint_fail_holes_out.png",
+    "ikea_unmeasurable_blur": "fixtures/ikea/checkpoint_unmeasurable_blur.png"
+  }
+}

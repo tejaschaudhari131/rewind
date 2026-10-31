@@ -212,10 +212,11 @@ class ModalGlimmerClient:
                         return data
             except Exception:
                 pass
+        # Endpoint not configured or unreachable: never claim a warm GPU (Glimmer 30B is not deployed).
         return {
-            "status": "warm",
-            "provider": "MODAL_H100_WARM",
+            "status": "unavailable",
+            "warm": False,
+            "provider": "NOT_DEPLOYED",
             "model": "Muse-Glimmer-30B",
-            "enable_memory_snapshot": True,
             "latency_ms": round((time.perf_counter() - t0) * 1000.0, 2),
         }

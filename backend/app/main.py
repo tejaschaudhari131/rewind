@@ -138,7 +138,7 @@ session_sm = SessionStateMachine()
 session_sm.current_step_index = 1  # Start focused on Step 2 (Connecting Rod Verification)
 active_execution_mode: str = "fixture"
 last_flat_measurement: Optional[FlatPartMeasurementResult] = None
-glimmer_warmup_status: Dict[str, Any] = {"status": "MODAL_H100_WARM", "warm": True}
+glimmer_warmup_status: Dict[str, Any] = {"status": "NOT_CHECKED", "warm": False}
 latest_telemetry_trace: Dict[str, Any] = build_six_model_proof_ledger(
     session_id="rewind-demo-session-001",
     step_id="attach-connecting-rod",
@@ -667,6 +667,8 @@ async def generate_cad_endpoint(req: CadGenerateRequest) -> Dict[str, Any]:
 
     out = {
         "cad_GenerationResult": cad_res.to_dict(),
+        "uncertainty_status": "declared_unvalidated",
+        "uncertainty_note": "uncertainty_95_mm values (0.25 mm dims, 0.1 mm stock thickness) are declared budgets, not validated measurement uncertainty; calibration is unvalidated.",
         "cad_VerificationResult": cad_res.verification.to_dict(),
         "downloads": {
             "step_url": "/api/assets/cad/flat_two_hole_link_v1.step",

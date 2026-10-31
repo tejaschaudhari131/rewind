@@ -70,11 +70,15 @@ async def run_stage1(frame_path: Path, cfg: CheckpointConfig, *, mode: str = "fi
             sam_info.update(measured=True, instances=len(res.instances or []), latency_ms=round(res.latency_ms, 1),
                             attempts=list(getattr(sam_client, "last_attempts", []) or []))
             if not res.instances:
-                provisional, reasons = "unknown", reasons + ["sam_no_instances"]
+                reasons = reasons + ["sam_no_instances"]
+                if provisional == "provisional_accepted":  # SAM can only withhold a pass, never mask a STOP
+                    provisional = "unknown"
         except Exception as exc:  # fail closed
             sam_info.update(error=f"{type(exc).__name__}: {exc}"[:300],
                             attempts=list(getattr(sam_client, "last_attempts", []) or []))
-            provisional, reasons = "unknown", reasons + ["sam_provider_error"]
+            reasons = reasons + ["sam_provider_error"]
+            if provisional == "provisional_accepted":
+                provisional = "unknown"
     if provisional == "unknown":
         logger.warning("furniture stage1 unknown step=%s reasons=%s sam=%s", cfg.step_id, reasons,
                        {k: sam_info.get(k) for k in ("called", "instances", "error", "attempts")})
@@ -115,6 +119,9 @@ async def run_stage2(frame_path: Path, cfg: CheckpointConfig, stage1: Dict[str, 
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"[:300]
     decision, resolution, needs_review, reasons = final_from_stage2(provisional, finding)
+    if provisional == "provisional_rejected" and finding != "consistent":
+        # Deterministic local witnesses saw the wrong face; an unsure/failed model must not lift the STOP.
+        decision, resolution, needs_review = "rejected", "local_witness_reject_upheld", False
     return {"stage": 2, "final": True, "status": "committed" if error is None else "error",
             "decision": decision, "resolution": resolution, "needs_review": needs_review, "reason_codes": reasons,
             "model_finding": finding, "model": "meta-models/muse-spark-open-1026", "measured": error is None,

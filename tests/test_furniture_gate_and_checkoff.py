@@ -103,7 +103,7 @@ class FakeWonder:
     def __init__(self, xy):
         self.xy = xy
 
-    async def run_cua_step(self, **kw):
+    async def run_cua_step(self, **kw):  # noqa: D401
         acts = [{"type": "click", "x": self.xy[0], "y": self.xy[1]}] if self.xy else []
         return SimpleNamespace(provider_response_id="resp_fake", model_used="fake", latency_ms=1.0,
                                computer_calls=[{"type": "computer_call", "call_id": "c1", "actions": acts}],
@@ -151,3 +151,19 @@ def test_api_routes():
     r = c.post("/api/furniture/checkpoint/verify", json={"scenario": "ikea_fail_holes_out", "check_off_manual": True}).json()
     assert r["decision"] == "rejected" and r["manual"]["label"] == "Manual not updated"
     assert c.post("/api/furniture/checkpoint/verify", json={"scenario": "nope"}).status_code == 404
+
+
+def test_sam_miss_never_masks_local_reject():
+    out = run(verify_furniture_checkpoint(CS.scenarios["ikea_fail_holes_out"], CFG, mode="live",
+                                          sam_client=FakeSam(n=0), auditor=FakeAuditor("insufficient_evidence")))
+    assert out["stage1"]["provisional_verdict"] == "provisional_rejected"
+    assert out["decision"] == "rejected"
+
+
+def test_model_error_does_not_lift_local_stop():
+    class Boom(FakeAuditor):
+        async def audit_checkpoint(self, **kw):
+            raise RuntimeError("down")
+    out = run(verify_furniture_checkpoint(CS.scenarios["ikea_fail_holes_out"], CFG, mode="live",
+                                          sam_client=FakeSam(), auditor=Boom("x")))
+    assert out["decision"] == "rejected"

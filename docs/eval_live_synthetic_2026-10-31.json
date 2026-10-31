@@ -1,0 +1,44 @@
+{
+  "source": "SYNTHETIC FIXTURES (not real footage)",
+  "results": [
+    {
+      "frame": "/workspace/rewind/fixtures/ikea/checkpoint_pass_step3.png",
+      "expected": "correct",
+      "mode": "live",
+      "provisional": "unknown",
+      "final": "unknown",
+      "holes": "pass",
+      "tape": "pass",
+      "iou": 0.9108,
+      "stage1_ms": 2640.7,
+      "stage2_ms": 7680.8,
+      "model_finding": "consistent"
+    },
+    {
+      "frame": "/workspace/rewind/fixtures/ikea/checkpoint_fail_holes_out.png",
+      "expected": "holes_out",
+      "mode": "live",
+      "provisional": "provisional_rejected",
+      "final": "rejected",
+      "holes": "fail",
+      "tape": "fail",
+      "iou": 0.934,
+      "stage1_ms": 2694.6,
+      "stage2_ms": 9251.9,
+      "model_finding": "insufficient_evidence"
+    },
+    {
+      "frame": "/workspace/rewind/fixtures/ikea/checkpoint_unmeasurable_blur.png",
+      "expected": "unmeasurable",
+      "mode": "live",
+      "provisional": "unknown",
+      "final": "unknown",
+      "holes": "insufficient_evidence",
+      "tape": "insufficient_evidence",
+      "iou": 0.9818,
+      "stage1_ms": 1205.2,
+      "stage2_ms": 7779.9,
+      "model_finding": "consistent"
+    }
+  ]
+}

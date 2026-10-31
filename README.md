@@ -193,3 +193,23 @@ modal deploy modal_app/glimmer_server.py
 ## 9. License
 
 Released under the [MIT License](LICENSE).
+
+## Flat-pack furniture check (IKEA reframe) — status 2026-10-31
+
+Default UI view: **Step 3 of 8 · Left side panel**. Config: `fixtures/ikea/checkpoints.json` (per-step SAM concept prompt `"wooden panel"`, witness params).
+Frames are **synthetic** (`scripts/generate_ikea_fixtures.py`) until real footage is shot (`docs/REAL_FOOTAGE_SHOT_LIST_IKEA.md`; evaluate with `scripts/eval_real_footage.py --labels ...`).
+
+- Stage 1 (local, deterministic): panel outline IoU + hole-pattern face witness + tape-edge orientation witness; dim/blurred → `insufficient_evidence` (fail closed). Live mode adds SAM; SAM can only withhold a pass, never lift a STOP.
+- Stage 2 (live): blinded Baseten muse-spark-open audit with a neutral furniture prompt. Never auto-accepts; a local witness reject is upheld unless the model says `consistent`.
+- Manual check-off: Muse Wonder clicks the step's checkbox on a local checklist page (headless Chrome); success only if the DOM shows exactly that box ticked, else **"Manual not updated"**.
+
+Measured live on 2026-10-31 (synthetic frames, not real footage):
+
+| frame | stage 1 | Baseten finding | final |
+|---|---|---|---|
+| correct | pass/pass witnesses, but SAM "wooden panel" found 0 instances → unknown | consistent | unknown (not confirmed) |
+| holes out | fail/fail (IoU 0.934: outline alone would pass) | insufficient_evidence | **rejected** |
+| dim/blur | insufficient_evidence | consistent (model false positive) | unknown |
+
+Wonder check-off: 1 live run, single click (52,201), Step 3 ticked and DOM-verified, ~8.3 s model latency.
+Known gaps: SAM does not find the flat synthetic panel; Baseten said "consistent" on an unmeasurable frame (the local gate kept it at unknown). Real footage has not been evaluated yet.

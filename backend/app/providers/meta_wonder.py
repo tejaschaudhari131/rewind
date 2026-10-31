@@ -176,6 +176,7 @@ class MetaWonderClient:
         raw_instruction: bool = False,
         previous_response_id: str | None = None,
         call_id: str | None = None,
+        safety_replay_receipt: str | None = None,
     ) -> WonderCuaStepResult:
         raw_bytes = (
             Path(screenshot_source).read_bytes()
@@ -197,6 +198,8 @@ class MetaWonderClient:
             payload["previous_response_id"] = previous_response_id
             payload["input"] = [{"type": "computer_call_output", "call_id": call_id,
                                  "output": {"type": "input_image", "image_url": f"data:image/png;base64,{b64}"}}]
+            if safety_replay_receipt:
+                payload["input"][0]["meta_safety_replay_receipt"] = safety_replay_receipt
         t0 = time.perf_counter()
         async with build_httpx_client() as client:
             resp = await client.post(
@@ -205,7 +208,8 @@ class MetaWonderClient:
                 json=payload,
             )
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Wonder HTTP {resp.status_code}: {resp.text[:400]}")
         body = resp.json()
         calls: List[dict[str, Any]] = []
         texts: List[str] = []

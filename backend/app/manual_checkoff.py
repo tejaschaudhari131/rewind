@@ -45,11 +45,11 @@ def _clicks(calls: List[dict]) -> List[tuple[int, int]]:
     return out
 
 
-def _only_screenshot(calls: List[dict]) -> Optional[str]:
+def _only_screenshot(calls: List[dict]) -> Optional[dict]:
     for c in calls:
         acts = c.get("actions") or ([c["action"]] if isinstance(c.get("action"), dict) else [])
         if acts and all(a.get("type") == "screenshot" for a in acts):
-            return c.get("call_id")
+            return c
     return None
 
 
@@ -68,7 +68,8 @@ async def run_checkoff(cs: CheckpointSet, step_number: int, *, mode: str = "fixt
         from .providers.meta_wonder import MetaWonderClient
         wonder = MetaWonderClient()
     task = (f"This is an assembly manual checklist. Step {step_number} has just been verified as complete. "
-            f"Click the checkbox for 'Step {step_number}' to tick it. Do not click any other checkbox.")
+            f"Click the checkbox for 'Step {step_number}' to tick it. Do not click any other checkbox. "
+            f"The current screenshot ({VIEW_W}x{VIEW_H}) is attached; act on it directly with a click.")
     t0 = time.perf_counter()
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME, headless=True)
@@ -78,15 +79,21 @@ async def run_checkoff(cs: CheckpointSet, step_number: int, *, mode: str = "fixt
             before = await page.eval_on_selector_all("input[type=checkbox]", "els=>els.map(e=>e.checked)")
             shot = await page.screenshot()
             (out_dir / "before.png").write_bytes(shot)
-            prev_id = call_id = None
+            prev_id = call_id = receipt = None
             for turn in range(max_turns):
-                try:
-                    r = await wonder.run_cua_step(screenshot_source=shot, task_prompt=task, display_width=VIEW_W,
+                r, last_exc = None, None
+                for _attempt in range(2):  # one retry for transient proxy/network errors
+                    try:
+                        r = await wonder.run_cua_step(screenshot_source=shot, task_prompt=task, display_width=VIEW_W,
                                                   display_height=VIEW_H, raw_instruction=True,
-                                                  previous_response_id=prev_id, call_id=call_id)
-                except Exception as exc:
+                                                  previous_response_id=prev_id, call_id=call_id,
+                                                  safety_replay_receipt=receipt)
+                        break
+                    except Exception as exc:
+                        last_exc = exc
+                if r is None:
                     result["reason"] = "wonder_error"
-                    result["error"] = f"{type(exc).__name__}: {exc}"[:300]
+                    result["error"] = f"{type(last_exc).__name__}: {last_exc}"[:300]
                     break
                 result["measured"] = True
                 result["turns"].append({"response_id": r.provider_response_id, "model": r.model_used,
@@ -102,7 +109,8 @@ async def run_checkoff(cs: CheckpointSet, step_number: int, *, mode: str = "fixt
                 if not sid:
                     result["reason"] = "wonder_returned_no_click"
                     break
-                prev_id, call_id = r.provider_response_id, sid
+                prev_id, call_id = r.provider_response_id, sid.get("call_id")
+                receipt = sid.get("meta_safety_replay_receipt")
             after = await page.eval_on_selector_all("input[type=checkbox]", "els=>els.map(e=>e.checked)")
             (out_dir / "after.png").write_bytes(await page.screenshot())
         finally:

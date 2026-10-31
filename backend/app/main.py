@@ -1042,5 +1042,56 @@ async def websocket_session_endpoint(ws: WebSocket) -> None:
         ws_hub.disconnect(ws)
 
 
+# --------------------------------------------------------------------------------------------------
+# Flat-pack furniture reframe (docs/IKEA_REFRAME_PLAN.md): per-step config, panel gate, manual check-off
+# --------------------------------------------------------------------------------------------------
+from backend.app.checkpoints import default_checkpoint_set  # noqa: E402
+from backend.app.furniture_gate import verify_furniture_checkpoint  # noqa: E402
+from backend.app.manual_checkoff import NOT_UPDATED, run_checkoff  # noqa: E402
+
+
+class FurnitureVerifyRequest(BaseModel):
+    scenario: str = "ikea_pass_step3"
+    step_id: Optional[str] = None
+    mode: Literal["fixture", "live"] = "fixture"
+    check_off_manual: bool = False
+
+
+@app.get("/api/furniture/config")
+async def furniture_config() -> Dict[str, Any]:
+    cs = default_checkpoint_set()
+    return {"profile": cs.profile, "product": cs.product, "synthetic": cs.synthetic,
+            "total_steps": cs.total_steps, "scenarios": sorted(cs.scenarios),
+            "steps": [{"step_id": c.step_id, "label": c.display_label, "title": c.title,
+                       "sam_concept_prompt": c.sam_concept_prompt, "audit_profile": c.audit_profile}
+                      for c in cs.steps]}
+
+
+@app.post("/api/furniture/checkpoint/verify")
+async def furniture_verify(req: FurnitureVerifyRequest) -> Dict[str, Any]:
+    cs = default_checkpoint_set()
+    if req.scenario not in cs.scenarios:
+        raise HTTPException(status_code=404, detail=f"unknown furniture scenario {req.scenario!r}")
+    try:
+        cfg = cs.step(req.step_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    out = await verify_furniture_checkpoint(cs.scenarios[req.scenario], cfg, mode=req.mode)
+    out["synthetic_fixture"] = cs.synthetic
+    manual = {"status": "not_updated", "label": NOT_UPDATED, "reason": "not_requested"}
+    if req.check_off_manual and out["decision"] == "accepted":
+        manual = await run_checkoff(cs, cfg.step_number, mode=req.mode)
+    elif req.check_off_manual:
+        manual["reason"] = "gate_not_accepted"
+    out["manual"] = manual
+    return out
+
+
+@app.post("/api/furniture/manual/checkoff")
+async def furniture_manual_checkoff(step_number: int = 3, mode: Literal["fixture", "live"] = "fixture") -> Dict[str, Any]:
+    return await run_checkoff(default_checkpoint_set(), step_number, mode=mode)
+
+
 if FRONTEND_DIST_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend")
+

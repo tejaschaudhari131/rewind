@@ -37,6 +37,7 @@ class WonderCuaStepResult:
     computer_calls: List[dict[str, Any]]
     text_summary: str
     latency_ms: float
+    usage: dict = field(default_factory=dict)
 
 
 class MetaWonderClient:
@@ -172,6 +173,9 @@ class MetaWonderClient:
         task_prompt: str,
         display_width: int = 1200,
         display_height: int = 680,
+        raw_instruction: bool = False,
+        previous_response_id: str | None = None,
+        call_id: str | None = None,
     ) -> WonderCuaStepResult:
         raw_bytes = (
             Path(screenshot_source).read_bytes()
@@ -185,6 +189,14 @@ class MetaWonderClient:
             expected_part_description=task_prompt,
             model=self.model,
         )
+        if raw_instruction:
+            # Generic computer-use task (e.g. manual check-off): send the task verbatim, not the CAD template.
+            payload["input"][0]["content"][1]["text"] = task_prompt
+        if previous_response_id and call_id:
+            b64 = base64.b64encode(raw_bytes).decode("ascii")
+            payload["previous_response_id"] = previous_response_id
+            payload["input"] = [{"type": "computer_call_output", "call_id": call_id,
+                                 "output": {"type": "input_image", "image_url": f"data:image/png;base64,{b64}"}}]
         t0 = time.perf_counter()
         async with build_httpx_client() as client:
             resp = await client.post(
@@ -209,6 +221,7 @@ class MetaWonderClient:
             computer_calls=calls,
             text_summary=" ".join(texts).strip(),
             latency_ms=latency_ms,
+            usage=dict(body.get("usage") or {}),
         )
 
     @staticmethod

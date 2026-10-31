@@ -1,0 +1,21 @@
+# Pinned versions verified on 2026-10-31 (Python 3.13). Fixture demo needs no API keys.
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.1
+python-multipart==0.0.32
+python-dotenv==1.2.4
+httpx==0.28.1
+websockets==17.3
+jsonschema==4.26.0
+numpy==2.5.4
+scipy==1.18.1
+opencv-contrib-python-headless==5.0.0.93
+pillow==13.0.0
+trimesh==5.2.0
+manifold3d==3.5.4
+networkx==3.7
+reportlab==5.1.0
+pytest==9.2.0
+pytest-asyncio==1.4.1
+# Optional: only for `modal deploy modal_app/glimmer_server.py`
+# modal==1.6.3

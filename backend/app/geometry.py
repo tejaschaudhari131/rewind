@@ -92,7 +92,10 @@ class FlatPartMeasurementResult:
     pin_diameter: float = 8.0
     diametral_clearance: float = 0.4
     independent_center_distance_check: float = 0.0
+    # DECLARED design budget, NOT a validated measurement uncertainty: calibration is unvalidated
+    # (placeholder intrinsics, synthetic frames only). See uncertainty_status.
     uncertainty_95_mm: float = 0.25
+    uncertainty_status: str = "declared_unvalidated"
     registration_rmse_px: float = 0.0
     hole_a_center_mm: List[float] = field(default_factory=list)
     hole_b_center_mm: List[float] = field(default_factory=list)
@@ -814,7 +817,7 @@ def measure_flat_link_on_mat_z0(
         pin_diameter=pin_dia_mm,
         diametral_clearance=diametral_clearance_mm,
         independent_center_distance_check=independent_check_mm,
-        uncertainty_95_mm=0.25,
+        uncertainty_95_mm=0.25,  # declared budget; uncertainty_status="declared_unvalidated"
         registration_rmse_px=cal_used.registration_rmse_px,
         hole_a_center_mm=hole_a_mm,
         hole_b_center_mm=hole_b_mm,
@@ -861,7 +864,7 @@ def build_measurement_record_envelope(
             },
             "thickness": {
                 "value_mm": measurement.thickness,
-                "uncertainty_95_mm": 0.1,
+                "uncertainty_95_mm": 0.1,  # declared stock tolerance, not measured
                 "source": "declared_stock",
                 "evidence_artifact_ids": [art_uuid],
                 "plane_id": None,

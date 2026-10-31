@@ -30,12 +30,12 @@
 
 ---
 
-### `0:42 – 1:15` — Hands-Free `muse-voice-transcribe-1.0` + Sub-2.8s Valid Checkpoint Pass
+### `0:42 – 1:15` — Hands-Free `muse-voice-transcribe-1.0` + Two-Stage Valid Checkpoint Pass
 - **Visual On Screen**:
   - Tejas seats the crank disk and connecting rod in the **correct orientation** while keeping both hands on the hardware.
   - He speaks aloud: *"Check step."*
   - The **`muse-voice-transcribe-1.0`** WebSocket VAD waveform bar (`wss://api.meta.ai/v1/asr/realtime`) endpoints the utterance in `180 ms`.
-  - Pane 2 flashes **EMERALD GREEN (`ACCEPTED`: IoU `0.972`, Witness Cosine `+0.996`, `Muse Glimmer 30B: CONSISTENT`)** in `< 1.9s`.
+  - Pane 2 flashes **EMERALD GREEN (`ACCEPTED`: IoU `0.972`, Witness Cosine `+0.996`, provisional in `< 2.8s`, then `Muse Spark Open (Baseten): CONSISTENT` confirms in ~5–7 s)**.
 - **Voiceover / Live Audio**:
   > *"During reassembly, my hands stay on the hardware. Muse Voice Transcribe 1.0 streams live 24-kilohertz PCM audio over WebSocket with endpointing. When I say 'check step,' our homography solver warps the live SAM 3.1 mask and passes both the geometric gate and our deterministic CIE LAB witness pre-check and live Baseten Muse Spark Open arbiter."*
 - **Rubric / Bonus Locked**: **`muse-voice-transcribe-1.0` + Technical Execution (25%)**
@@ -51,8 +51,7 @@
     - **Dual Open-Weight Consensus**: The **deterministic CIE LAB witness-polarity pre-check (`cos = -0.994`)** and live **`Muse Spark Open` (`meta-models/muse-spark-open-1026` on Baseten)** flag `MISMATCH (WITNESS_INVERTED_180)`.
     - **`muse-image-1.0` (`/v1/images/edits`)** streams in the annotated visual repair card (`GET /api/repair-card/{session_id}/{step_id}`).
 - **Voiceover / Live Audio**:
-  > *"Now watch why Meta's multi-model verification pattern matters. I install the asymmetrical connecting rod backward. Silhouette IoU is 0.97—almost identical. But our illumination-invariant CIE LAB witness-polarity vector conflicts with the silhouette pass, triggering both our blinded Muse Glimmer 30B auditor on Modal H100 and Muse Spark Open on Baseten. Both open-weight models catch the 180-degree witness inversion, Muse Wonder blocks progression, and Muse Image 1.0 edits the live frame into a visual repair instruction card."*
-- **Rubric / Bonus Locked**: **$10K Open Weight Bonus (`Muse Glimmer 30B` + `Muse Spark Open`) + $5K Creative Bonus (`muse-image-1.0`)**
+  > *"Now watch why Meta's multi-model verification pattern matters. I install the asymmetrical connecting rod backward. Silhouette IoU is 0.97—almost identical. But our illumination-invariant CIE LAB witness-polarity vector conflicts with the silhouette pass, triggering a blinded live audit by Meta's open-weight Muse Spark Open on Baseten. The model catches the 180-degree witness inversion, Muse Wonder blocks progression, and Muse Image 1.0 edits the live frame into a visual repair instruction card."*
 
 ---
 

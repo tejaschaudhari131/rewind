@@ -89,13 +89,13 @@ class BasetenSparkClient:
         if not self.baseten_api_key and not use_remote_fallback:
             return SessionSummaryResult(
                 provider="local-deterministic-fallback",
-                model=self.cfg.baseten_spark_model,
+                model="local-deterministic-fallback (no model call)",
                 summary=(
                     f"Session {session_id}: {len(events)} cycles recorded "
                     f"({accepted_count} accepted, {rejected_count} rejected)."
                 ),
                 digest=digest,
-                latency_ms=0.1,
+                latency_ms=0.0,  # no model call; not measured
             )
 
         prompt = (

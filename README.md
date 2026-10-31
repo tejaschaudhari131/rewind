@@ -1,54 +1,24 @@
-# REWIND — Plane-Aware 2.5D Physical Teardown, Sub-2.8s Reassembly Verification & Parametric CAD Link Regeneration on the Meta Model Stack
+# REWIND — Plane-Aware Reassembly Verification with a Two-Stage Meta Model Gate & Parametric CAD Link Regeneration
 
-> **Watch a mechanism come apart. REWIND checks the rebuild in under 2.8 seconds and recreates a missing flat mechanical link (`flat_two_hole_link_v1`) as a watertight `.STL` plus a faceted, mesh-derived `.STEP` from mat-plane millimeter estimates.**
+> **Watch a mechanism come apart. When it is rebuilt, REWIND gives a fast local provisional verdict (stage 1, ≤2.8 s) and then has a live Meta open-weight model (`meta-models/muse-spark-open-1026` on Baseten) confirm or override it (stage 2, ≤20 s). Nothing is accepted unless both stages agree. It also recreates a missing flat link (`flat_two_hole_link_v1`) as a watertight `.STL` plus a faceted, mesh-derived `.STEP` from mat-plane millimeter estimates.**
 
-> **Honesty note (external audit 2026-10-29):** camera calibration is currently **unvalidated** (placeholder intrinsics/distortion, no holdout set), so no fabrication tolerance (e.g. ±0.25 mm) is established. Mat-plane measurements are only valid for parts lying flush on `z = 0`; raised features are subject to parallax (see `backend/app/projection.py`). The `.STEP` is a FACETED_BREP derived from the mesh, not an analytic CadQuery solid. See `docs/audits/2026-10-29-external/RESPONSE.md`.
+> **Honesty note:** camera calibration is **unvalidated** (placeholder intrinsics, synthetic frames only), so no fabrication tolerance is claimed; `uncertainty_95_mm` values are *declared budgets* (`uncertainty_status: "declared_unvalidated"`). The `.STEP` is a FACETED_BREP derived from the mesh. `Muse Glimmer 30B` is **not deployed**; its slot is filled by live Baseten Muse Spark Open vision (live mode) or a deterministic OpenCV heuristic (fixture mode). See `docs/audits/2026-10-29-external/RESPONSE.md`.
 
-Built for the **Meta Global AI Developer Hackathon (2026)** across the **Indie Track** plus the **Open Weight ($10K)**, **Agentic ($5K)**, and **Creative ($5K)** bonus tracks.
+Built for the **Meta Global AI Developer Hackathon (2026)**, Indie Track.
 
----
+## Quickstart — No keys needed: fixture demo (3 commands)
 
-## 1. Live 4-Pane Industrial Operator Workbench
+```bash
+git clone https://github.com/tejaschaudhari131/rewind.git && cd rewind
+pip install -r requirements.txt && (cd frontend && npm install && npm run build)
+python -m uvicorn backend.app.main:app --port 8000   # open http://127.0.0.1:8000
+```
 
-### Verified Checkpoint Pass & Interactive 3D `.STL` / `.STEP` Replacement Link
-![REWIND Workbench — Verified Pass & 3D CAD Preview](docs/screenshots/workbench_pass_and_3d_cad.png)
+Or `make install && make demo`. Fixture mode runs fully offline: every model lane is reported as `NOT_MEASURED`, a fixture pass is shown as **PROVISIONAL PASS · FIXTURE ONLY (stage 2 not run)**, and the deterministic repair card is labelled `deterministic_overlay`, `measured: false`. Run the tests with `make test` (120 tests; live smoke tests skip without keys).
 
-### Deterministic Rejection of a 180° Flipped Connecting Rod (High Silhouette Overlap, Failed Witness & Blinded Visual Audit)
-![REWIND Workbench — 180° Flipped Connecting Rod Rejected](docs/screenshots/workbench_reject_flipped_rod.png)
+**Live mode** (optional): `cp .env.example .env`, add `META_API_KEY` and `BASETEN_API_KEY`, run `make preflight` (checks the Meta `/v1/models` list via the configured proxy and Baseten reachability; free calls), then switch the workbench to `live`.
 
----
-
-## 2. Why REWIND Exists
-
-When technicians, robotics engineers, or field operators disassemble a mechanical linkage without service drawings, two failure modes dominate:
-1. **Silent Reassembly Errors**: A symmetric-looking link (`connecting_rod`) is reinstalled **180° flipped** or only partially seated on its shoulder pin. Pure bounding-box or mask-IoU checks pass (`IoU = 0.9722`), causing mechanism binding or jam under load.
-2. **Broken or Missing Flat Links**: A flat connecting rod is cracked or missing. Uncalibrated monocular depth guesses cannot support fabrication tolerances.
-
-**REWIND** solves both problems through a **strict single-writer contract (`CONTRACT.md`)**, **plane-aware 2.5D metrology**, and a **multi-model Meta AI + Open-Weight Muse architecture**:
-- **Elevated Assembly Checks (`unit: "px"`, `camera_undistorted_px`)**: Never hallucinate millimeters on elevated links (`z > 0`) due to perspective parallax. Elevated checkpoints evaluate `sam-3.1` full-frame segmentation masks (`mask_iou >= 0.82`), directional witness stripe alignment (`witness_error_px <= 6.0 px`), and pivot seating (`pivot_error_px <= 4.0 px`) in parallel with a **blinded `Muse Glimmer 30B` visual audit** inside a **2.8-second hard gate**.
-- **Calibrated `mat_z0` Flat-Link Metrology (`unit: "mm"`, `plane_id: "mat_z0"`)**: When a flat link is placed flush on the `400 × 250 mm` `APRILTAG_36h11` calibration mat (`z = 0`), REWIND rectifies the contour via the planar homography $H_{\text{undistorted\_px}\to\text{mat\_z0\_mm}}$, extracts `hole_center_distance = 150.01 mm`, `outer_width = 25.00 mm`, and bore diameters (`7.97 / 8.00 mm`), and drives a deterministic trimesh CAD worker (`flat_two_hole_link_v1`) to export a watertight **`.STL`**, a **faceted mesh-derived ISO-10303-21 `.STEP`** (topology-checked: closed shell, every face on its PLANE, face count = triangle count), and **2D orthographic drawings**. The `0.00003 mm` figure is model-vs-intended-dimension self-consistency, *not* measurement accuracy; the calibration is unvalidated.
-
----
-
-## 3. Meta Model API & Open-Weight Muse Architecture
-
-Every runtime stage has a single authorized producer under `contracts/contract.schema.json` (JSON Schema Draft 2020-12):
-
-| Stage / Role | Model & Endpoint | Authorized Producer | Latency (Measured / Target) | Role in REWIND |
-| :--- | :--- | :--- | :--- | :--- |
-| **Spatial Segmentation & Video Tracking** | **`sam-3.1`** (`POST https://api.meta.ai/v1/responses`) | `sam_adapter` | **`816–1,089 ms`** (live measured, up to 3 parts in 1 call) | Tracks 7 mechanism modules across teardown clips and segments stationary checkpoint frames via custom base85 range-coded mask decoding (`<0f>0<\|box...\|><\|mask;...\|>`). |
-| **Blinded Visual Auditor (Open Weights)** | **`Muse Glimmer 30B`** on Modal H100 (`modal_app/glimmer_server.py`) | `glimmer_adapter` | **`~1.1–1.8 s`** warm container snapshot | Inspects reference vs. live frames with **strict input blinding** (never sees planner claims or geometry pass/fail labels) to catch flipped witness marks, proud pins, or washers. |
-| **Fast State Compiler & Failure Recovery** | **`muse-spark-1.3-contributor`** (`POST https://api.meta.ai/v1/responses`) | `wonder_adapter` | **`1,501 ms`** (`reasoning.effort="minimal"`) | Compiles the reverse reassembly DAG from teardown observations and generates source-grounded recovery instructions under `wonder-output.schema.json`. |
-| **High-Depth Planner & Native Computer Use (CUA)** | **`muse-wonder-1.0`** (`POST https://api.meta.ai/v1/responses`, `tools: [{"type": "computer"}]`) | `wonder_adapter` | Async inspection lane | Final-run reverse state compiler and sandboxed CUA inspector (`computer_call` -> screenshot verification of exported `.STEP`/`.STL` orthographic projections). |
-| **Hands-Free Voice Control** | **`muse-voice-transcribe-1.0`** (`wss://api.meta.ai/v1/asr/realtime`) | `voice_relay` | **`989 ms`** handshake / **`1,626 ms`** E2E | Streams 24 kHz 16-bit mono PCM audio in `ENDPOINTING` mode and triggers deterministic operator commands (`check_step`, `why_did_that_fail`, `scan_flat_part`, `generate_replacement`, `repeat_instruction`) only on final `speechComplete`. |
-| **Visual Repair Cards** | **`muse-image-1.0`** (`POST https://api.meta.ai/v1/images/edits`) | `image_adapter` | **`6,648 ms`** (async explanatory lane) | Generates annotated visual repair cards highlighting orientation arrows and seating targets when a checkpoint is rejected. |
-| **Ambiguous Session Reviewer (Open Weights)** | **`meta-models/muse-spark-open`** on Baseten (`/v1/chat/completions`) | `spark_open_reviewer` | Async audit lane | Performs multi-step session telemetry triage when repeated operator rejections occur. |
-
----
-
----
-
-## 3A. What Is Live vs. Deterministic (Credibility & Telemetry Policy)
+## 1. What Is Live vs. Deterministic (Credibility & Telemetry Policy)
 
 REWIND never fabricates token counts, request IDs, or model latencies. Every receipt in `/api/telemetry` carries `measured: true | false`; anything not invoked on the current run is reported as `NOT_MEASURED` with `0` tokens and `0.0 ms` latency.
 
@@ -65,11 +35,51 @@ REWIND never fabricates token counts, request IDs, or model latencies. Every rec
 | **Reverse DAG & Planner (`muse-spark-1.3-contributor`)** | Live `POST https://api.meta.ai/v1/responses` (`1,501 ms`, `input_tokens=380`, `output_tokens=549`) | Cached schema-valid fixture (`NOT_MEASURED`) | **Live Meta Model API** |
 | **CAD Drawing CUA (`muse-wonder-1.0`)** | `MetaWonderClient.run_cua_step()` sends `tools: [{"type": "computer"}]` to Meta `/v1/responses` when `mode="live"` | Deterministic UI cursor overlay labeled `measured: false` | **Live request payload only; status `cua_actions_returned`/`no_cua_actions`, `measured: false` — actions are not executed or verified** |
 | **Voice Command (`muse-voice-transcribe-1.0`)** | Live `wss://api.meta.ai/v1/asr/realtime` (`1,626 ms` E2E on `check_step_24khz.wav`) | Browser Web Speech / button trigger (`NOT_MEASURED`) | **Live Meta Realtime ASR; negated commands rejected; voice `check_step` never fabricates a pass without a live frame** |
-| **Visual Repair Card (`muse-image-1.0`)** | Live `POST https://api.meta.ai/v1/images/edits` (`6,648 ms`) | Pre-rendered `repair_card_step2.png` (`NOT_MEASURED`) | **Live Meta Image Edit API** |
+| **Visual Repair Card (`muse-image-1.0`)** | Live `POST https://api.meta.ai/v1/images/edits` (`6,648 ms`) | OpenCV `deterministic_overlay` repair card (`measured: false`) | **Live Meta Image Edit API** |
 
 ---
 
-## 4. Plane-Aware Metrology & Printable Hardware Artifacts
+## 2. Live 4-Pane Industrial Operator Workbench
+
+### Verified Checkpoint Pass & Interactive 3D `.STL` / `.STEP` Replacement Link
+![REWIND Workbench — Verified Pass & 3D CAD Preview](docs/screenshots/workbench_pass_and_3d_cad.png)
+
+### Deterministic Rejection of a 180° Flipped Connecting Rod (High Silhouette Overlap, Failed Witness & Blinded Visual Audit)
+![REWIND Workbench — 180° Flipped Connecting Rod Rejected](docs/screenshots/workbench_reject_flipped_rod.png)
+
+---
+
+## 3. Why REWIND Exists
+
+When technicians, robotics engineers, or field operators disassemble a mechanical linkage without service drawings, two failure modes dominate:
+1. **Silent Reassembly Errors**: A symmetric-looking link (`connecting_rod`) is reinstalled **180° flipped** or only partially seated on its shoulder pin. Pure bounding-box or mask-IoU checks pass (`IoU = 0.9722`), causing mechanism binding or jam under load.
+2. **Broken or Missing Flat Links**: A flat connecting rod is cracked or missing. Uncalibrated monocular depth guesses cannot support fabrication tolerances.
+
+**REWIND** solves both problems through a **strict single-writer contract (`CONTRACT.md`)**, **plane-aware 2.5D metrology**, and a **multi-model Meta AI + Open-Weight Muse architecture**:
+- **Elevated Assembly Checks (`unit: "px"`, `camera_undistorted_px`)**: Never hallucinate millimeters on elevated links (`z > 0`) due to perspective parallax. Elevated checkpoints evaluate `sam-3.1` full-frame segmentation masks (`mask_iou >= 0.82`), directional witness stripe alignment (`witness_error_px <= 6.0 px`), and pivot seating (`pivot_error_px <= 4.0 px`) as a **provisional stage 1 (≤2.8 s)**, then a **blinded live visual audit** by Baseten `meta-models/muse-spark-open-1026` confirms or overrides it (**stage 2, ≤20 s**).
+- **Calibrated `mat_z0` Flat-Link Metrology (`unit: "mm"`, `plane_id: "mat_z0"`)**: When a flat link is placed flush on the `400 × 250 mm` `APRILTAG_36h11` calibration mat (`z = 0`), REWIND rectifies the contour via the planar homography $H_{\text{undistorted\_px}\to\text{mat\_z0\_mm}}$, extracts `hole_center_distance = 150.01 mm`, `outer_width = 25.00 mm`, and bore diameters (`7.97 / 8.00 mm`), and drives a deterministic trimesh CAD worker (`flat_two_hole_link_v1`) to export a watertight **`.STL`**, a **faceted mesh-derived ISO-10303-21 `.STEP`** (topology-checked: closed shell, every face on its PLANE, face count = triangle count), and **2D orthographic drawings**. The `0.00003 mm` figure is model-vs-intended-dimension self-consistency, *not* measurement accuracy; the calibration is unvalidated.
+
+---
+
+## 4. Meta Model API & Open-Weight Muse Architecture
+
+Every runtime stage has a single authorized producer under `contracts/contract.schema.json` (JSON Schema Draft 2020-12):
+
+| Stage / Role | Model & Endpoint | Authorized Producer | Latency (Measured / Target) | Role in REWIND |
+| :--- | :--- | :--- | :--- | :--- |
+| **Spatial Segmentation & Video Tracking** | **`sam-3.1`** (`POST https://api.meta.ai/v1/responses`) | `sam_adapter` | **`816–1,089 ms`** (live measured, up to 3 parts in 1 call) | Tracks 7 mechanism modules across teardown clips and segments stationary checkpoint frames via custom base85 range-coded mask decoding (`<0f>0<\|box...\|><\|mask;...\|>`). |
+| **Blinded Visual Auditor (Open Weights)** | **`meta-models/muse-spark-open-1026`** vision on Baseten (live); deterministic OpenCV/LAB heuristic in `modal_app/glimmer_server.py` (fixture). **`Muse Glimmer 30B` on Modal: NOT deployed** (script included, untested on GPU) | `glimmer_adapter` | **`4.8–6.6 s`** measured (stage 2, ≤20 s deadline) | Inspects reference vs. live crops with **strict input blinding** (never sees planner claims or geometry pass/fail labels) to confirm or override the stage-1 provisional verdict. |
+| **Fast State Compiler & Failure Recovery** | **`muse-spark-1.3-contributor`** (`POST https://api.meta.ai/v1/responses`) | `wonder_adapter` | **`1,501 ms`** (`reasoning.effort="minimal"`) | Compiles the reverse reassembly DAG from teardown observations and generates source-grounded recovery instructions under `wonder-output.schema.json`. |
+| **High-Depth Planner & Native Computer Use (CUA)** | **`muse-wonder-1.0`** (`POST https://api.meta.ai/v1/responses`, `tools: [{"type": "computer"}]`) | `wonder_adapter` | Async inspection lane | Final-run reverse state compiler and sandboxed CUA inspector (`computer_call` -> screenshot verification of exported `.STEP`/`.STL` orthographic projections). |
+| **Hands-Free Voice Control** | **`muse-voice-transcribe-1.0`** (`wss://api.meta.ai/v1/asr/realtime`) | `voice_relay` | **`989 ms`** handshake / **`1,626 ms`** E2E | Streams 24 kHz 16-bit mono PCM audio in `ENDPOINTING` mode and triggers deterministic operator commands (`check_step`, `why_did_that_fail`, `scan_flat_part`, `generate_replacement`, `repeat_instruction`) only on final `speechComplete`. |
+| **Visual Repair Cards** | **`muse-image-1.0`** (`POST https://api.meta.ai/v1/images/edits`) | `image_adapter` | **`6,648 ms`** (async explanatory lane) | Generates annotated visual repair cards highlighting orientation arrows and seating targets when a checkpoint is rejected. |
+| **Ambiguous Session Reviewer (Open Weights)** | **`meta-models/muse-spark-open`** on Baseten (`/v1/chat/completions`) | `spark_open_reviewer` | Async audit lane | Performs multi-step session telemetry triage when repeated operator rejections occur. |
+
+---
+
+---
+
+## 5. Plane-Aware Metrology & Printable Hardware Artifacts
 
 ### 1:1 Printable `400 × 250 mm` `APRILTAG_36h11` Calibration Mat (`plane_id: "mat_z0"`)
 ![1:1 Printable AprilTag Calibration Mat](fixtures/printable/rewind_apriltag_mat_400x250mm.png)
@@ -89,18 +99,18 @@ When the removed connecting rod is placed flat on `mat_z0`, REWIND computes the 
 
 ---
 
-## 5. Sub-2.8s Deterministic Gate & Semantic Invariants
+## 6. Two-Stage Gate & Semantic Invariants
 
 REWIND enforces 10 runtime semantic invariants (`backend/app/semantic_validator.py` & `backend/app/gate.py`) beyond JSON Schema validation:
 1. **Single-Writer Stage Ownership**: `sam_adapter`, `geometry_service`, `glimmer_adapter`, `wonder_adapter`, `gate_service`, `coordinator`, and `cad_worker` can only emit their designated stage payloads. Neither `wonder_adapter` nor `glimmer_adapter` can set `gate_decision.accepted`.
 2. **Coordinate Hygiene (`px` vs. `mm`)**: Elevated assembly predicates (`z > 0`) must use `unit: "px"` with `plane_id: null`. Millimeter metrics (`unit: "mm"`) are rejected unless `plane_id == "mat_z0"` and `registration_rmse_px <= 1.5 px`.
-3. **Blinded Visual Audit (`sanitize_blinded_glimmer_context`)**: Before calling `Muse Glimmer 30B`, the adapter strips all planner verdicts, geometry pass/fail flags, and IoU numbers so the visual audit cannot rubber-stamp a prior hypothesis.
+3. **Blinded Visual Audit (`sanitize_blinded_glimmer_context`)**: Before calling the visual auditor, the adapter strips all planner verdicts, geometry pass/fail flags, and IoU numbers so the visual audit cannot rubber-stamp a prior hypothesis.
 4. **Atomic Compare-and-Set (CAS) State Machine**: Every checkpoint locks `(scene_version, plan_version, step_id, observation_id)`. If a camera shift (`registration_rmse_px > 1.5 px`) or new movement occurs mid-check, `scene_version` increments and stale in-flight provider responses are quarantined as diagnostic records.
-5. **Hard 2.80s Gate Deadline**: If parallel `sam-3.1` segmentation + `Muse Glimmer 30B` visual audit do not complete within `2,800 ms`, the gate transitions deterministically to `UNKNOWN_TIMEOUT` (`accepted = False`).
+5. **Two-Stage Deadlines**: Stage 1 (`sam-3.1` + geometry) must finish within `2,800 ms` or it becomes `UNKNOWN_TIMEOUT`; it is only ever *provisional*. Stage 2 (live model audit) must finish within `20 s`; timeout or unreadable output gives `unknown` (`accepted = False`). Only agreement of both stages yields `accepted`.
 
 ---
 
-## 6. Repository Structure
+## 7. Repository Structure
 
 ```text
 rewind/
@@ -120,18 +130,18 @@ rewind/
 │   ├── calibration.py                 # AprilTag 36h11 corner detector, homography & px/mm converter
 │   ├── geometry.py                    # Mask IoU, witness stripe vector error, & mat_z0 link scanner
 │   ├── cad_worker.py                  # Parametric flat_two_hole_link_v1 STEP/STL/SVG CAD generator
-│   ├── gate.py                        # Sub-2.8s parallel checkpoint gate & failure code classifier
+│   ├── gate.py                        # Stage-1 checkpoint gate (≤2.8 s, provisional) & failure code classifier
 │   ├── state_machine.py               # Atomic CAS state machine (MOVING -> CAPTURING -> CHECKING -> ACCEPTED/REJECTED/UNKNOWN)
 │   ├── main.py                        # FastAPI server + WebSocket voice relay + static workbench host
 │   └── providers/                     # Live Meta Model API & Open-Weight clients
 │       ├── meta_sam.py                # sam-3.1 client + base85 range-coded mask raster decoder
 │       ├── meta_wonder.py             # muse-wonder-1.0 / muse-spark-1.3-contributor + CUA CAD inspector
-│       ├── modal_glimmer.py           # Blinded Muse Glimmer 30B vision audit client
+│       ├── modal_glimmer.py           # Modal Glimmer client (Glimmer NOT deployed; heuristic server only)
 │       ├── meta_voice.py              # muse-voice-transcribe-1.0 real-time WebSocket client
 │       ├── meta_image.py              # muse-image-1.0 annotated visual repair card client
 │       └── baseten_spark.py           # meta-models/muse-spark-open session reviewer client
 ├── modal_app/
-│   ├── glimmer_server.py              # Modal H100 vLLM server for Muse Glimmer 30B with memory snapshot
+│   ├── glimmer_server.py              # Modal script for Muse Glimmer 30B (not deployed; OpenCV heuristic unless ENABLE_VLLM_ENGINE=1)
 │   └── README.md                      # Modal deployment & warm-up instructions
 ├── frontend/                          # 4-Pane React 19 + TypeScript + Three.js STL Operator Workbench
 ├── fixtures/
@@ -146,17 +156,18 @@ rewind/
 
 ---
 
-## 7. Quickstart & Reproducibility
+## 8. Full Setup & Reproducibility
 
 ### 1. Environment Setup
 ```bash
 git clone https://github.com/tejaschaudhari131/rewind.git
 cd rewind
-cp .env.example .env
+pip install -r requirements.txt
+cp .env.example .env   # optional: only needed for live mode
 # Add your META_API_KEY from https://dev.meta.ai to .env
 ```
 
-### 2. Run the Full 95-Test Suite (Offline + Live Meta API Smoke Tests)
+### 2. Run the Full 120-Test Suite (live smoke tests skip without keys)
 ```bash
 pytest -v
 ```
@@ -172,13 +183,13 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 Then open **`http://127.0.0.1:8000`** in your browser to interact with all four operator panes, inspect the 3D `.STL` and 2D orthographic drawings, and run the pass, flipped-rod rejection, camera-bump invalidation, and `mat_z0` flat-link CAD regeneration scenarios.
 
-### 4. Deploy Open-Weight `Muse Glimmer 30B` on Modal (Optional GPU Acceleration)
+### 4. (Experimental, not deployed) Muse Glimmer 30B on Modal
 ```bash
 modal deploy modal_app/glimmer_server.py
 ```
 
 ---
 
-## 8. License
+## 9. License
 
 Released under the [MIT License](LICENSE).

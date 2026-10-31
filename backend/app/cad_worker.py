@@ -773,7 +773,7 @@ def generate_flat_two_hole_link_v1(
             },
             "thickness": {
                 "value_mm": thick,
-                "uncertainty_95_mm": 0.1,
+                "uncertainty_95_mm": 0.1,  # declared stock tolerance, not measured
                 "source": "declared_stock",
                 "evidence_artifact_ids": [ev_art_uuid],
                 "plane_id": None,

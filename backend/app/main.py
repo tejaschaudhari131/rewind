@@ -11,6 +11,7 @@ generation, voice command execution, static asset serving (`/api/assets/golden/{
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 
 import base64
 import json
@@ -81,7 +82,14 @@ SCENARIO_TO_FRAME: Dict[str, Path] = {
     "step_4_base": GOLDEN_DIR / "step_4_base.png",
 }
 
+@asynccontextmanager
+async def _lifespan(_app):
+    await _warmup_glimmer_on_startup()
+    yield
+
+
 app = FastAPI(
+    lifespan=_lifespan,
     title="REWIND Physical Teardown & Reassembly Verification API",
     version="1.0.0",
     description="Deterministic 2-tier checkpoint gate, plane-aware AprilTag metrology, and parametric STEP/STL CAD worker.",
@@ -285,14 +293,14 @@ async def get_health() -> Dict[str, Any]:
     }
 
 
-@app.on_event("startup")
 async def _warmup_glimmer_on_startup() -> None:
     global glimmer_warmup_status
     try:
         client = ModalGlimmerClient()
         glimmer_warmup_status = await client.warmup()
     except Exception as exc:
-        glimmer_warmup_status = {"status": "MODAL_H100_WARM", "warm": True, "note": str(exc)}
+        # Never claim a warm GPU we could not reach.
+        glimmer_warmup_status = {"status": "UNAVAILABLE", "warm": False, "note": str(exc)}
 
 
 @app.get("/api/warmup")
@@ -495,6 +503,7 @@ async def verify_checkpoint(req: CheckpointVerifyRequest) -> Dict[str, Any]:
     frame_path = _resolve_frame_path(req.scenario, req.image_path)
     sim_elapsed = req.simulated_elapsed_ms
     if req.scenario == "timeout" and sim_elapsed is None:
+        # Simulated deadline overrun for the offline timeout scenario (labelled simulated in the response).
         sim_elapsed = 3100.0
 
     # Ensure step is positioned on Step 2 (`attach-connecting-rod`) when running step 2 checkpoint scenarios
@@ -519,6 +528,15 @@ async def verify_checkpoint(req: CheckpointVerifyRequest) -> Dict[str, Any]:
     payload["scenario"] = req.scenario
     payload["mode"] = effective_mode
     payload["frame_url"] = f"/api/assets/golden/{frame_path.name}"
+    if sim_elapsed is not None:
+        payload["elapsed_is_simulated"] = True
+        payload["simulated_elapsed_ms"] = sim_elapsed
+    if effective_mode == "fixture":
+        payload["fixture_only"] = True
+        payload["stage2"] = "not_run"
+        if outcome.decision == "accepted":
+            payload["provisional_status"] = "provisional_local_pass"
+            payload["verdict_label"] = "PROVISIONAL PASS (fixture only: stage 2 model confirmation not run)"
     if payload.get("telemetry_trace"):
         latest_telemetry_trace = payload["telemetry_trace"]
     if outcome.decision != "accepted":
@@ -821,6 +839,7 @@ async def run_bonus_repair_card(req: BonusLaneRequest) -> Dict[str, Any]:
     out_path = DEFAULT_CAD_OUTPUT_DIR / "repair_card_step2.png"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     src_frame = SCENARIO_TO_FRAME["fail_flipped_rod"]
+    t_card = time.perf_counter()
 
     if req.mode == "live":
         img_client = MetaImageClient()
@@ -846,11 +865,13 @@ async def run_bonus_repair_card(req: BonusLaneRequest) -> Dict[str, Any]:
             cv2.LINE_AA,
         )
         cv2.imwrite(str(out_path), img)
-        latency_ms = 14.2
+        latency_ms = round((time.perf_counter() - t_card) * 1000.0, 2)
 
+    is_live = req.mode == "live"
     info = {
-        "status": "generated",
-        "model": settings.image_model,
+        "status": "generated" if is_live else "deterministic_overlay",
+        "model": settings.image_model if is_live else "deterministic-overlay (OpenCV; no model call)",
+        "measured": is_live,
         "repair_card_url": "/api/assets/cad/repair_card_step2.png",
         "legacy_url": "/fixtures/cad_outputs/repair_card_step2.png",
         "output_path": str(out_path),

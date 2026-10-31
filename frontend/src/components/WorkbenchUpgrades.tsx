@@ -265,7 +265,7 @@ export const LiveCameraControlStrip: React.FC<LiveCameraCaptureProps> = ({
 export const PairedWitnessCropComparison: React.FC<{
   refCropB64?: string;
   liveCropB64?: string;
-  polarityCosine: number;
+  polarityCosine: number | null;
   silhouetteIou: number;
   witnessAligned: boolean;
   dualConsensus?: Record<string, any> | null;
@@ -279,7 +279,7 @@ export const PairedWitnessCropComparison: React.FC<{
   dualConsensus,
   repairCardUrl,
 }) => {
-  const isFlipped = !witnessAligned || polarityCosine < 0;
+  const isFlipped = !witnessAligned || (polarityCosine !== null && polarityCosine < 0);
   return (
     <div
       data-testid="paired-witness-crops-panel"
@@ -305,7 +305,7 @@ export const PairedWitnessCropComparison: React.FC<{
                 : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
             }`}
           >
-            polarity_cosine = {polarityCosine >= 0 ? `+${polarityCosine.toFixed(3)}` : polarityCosine.toFixed(3)}
+            polarity_cosine = {polarityCosine === null ? 'not measured' : polarityCosine >= 0 ? `+${polarityCosine.toFixed(3)}` : polarityCosine.toFixed(3)}
           </span>
         </div>
       </div>

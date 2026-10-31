@@ -336,7 +336,7 @@ def test_fastapi_endpoints_and_websocket() -> None:
 
     r_card = client.post("/api/bonus/repair-card", json={"mode": "fixture"})
     assert r_card.status_code == 200
-    assert r_card.json()["status"] == "generated"
+    assert r_card.json()["status"] in ("generated", "deterministic_overlay")
 
     r_spark = client.post("/api/bonus/spark-review", json={"mode": "fixture"})
     assert r_spark.status_code == 200

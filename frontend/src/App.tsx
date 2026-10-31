@@ -46,6 +46,10 @@ interface GateResponse {
   decision: 'accepted' | 'rejected' | 'unknown' | 'pending';
   reason_codes: string[];
   provisional_status: string;
+  fixture_only?: boolean;
+  stage2?: string;
+  verdict_label?: string;
+  elapsed_is_simulated?: boolean;
   elapsed_ms: number;
   registration_rmse_px: number;
   calibration_valid: boolean;
@@ -378,17 +382,18 @@ export const App: React.FC = () => {
     runScenarioVerify('pass_step2');
   }, []);
 
-  const decision = gateData?.decision ?? 'accepted';
-  const regRmse = gateData?.registration_rmse_px ?? 0.39;
-  const calValid = gateData?.calibration_valid ?? true;
-  const elapsedMs = gateData?.elapsed_ms ?? 38.4;
+  const decision = gateData?.decision ?? 'pending';
+  const regRmse = gateData?.registration_rmse_px ?? 0;
+  const calValid = gateData?.calibration_valid ?? false;
+  const elapsedMs = gateData?.elapsed_ms ?? 0;
   const geom = gateData?.geometry_metrics ?? {
-    status: 'pass',
-    mask_iou: 0.9722,
-    coverage_ratio: 0.975,
-    pivot_error_px: 0.37,
-    witness_error_px: 0.36,
-    registration_rmse_px: 0.39,
+    // No gate run yet: show zeros, never canned "pass" metrics.
+    status: 'not_run',
+    mask_iou: 0,
+    coverage_ratio: 0,
+    pivot_error_px: 0,
+    witness_error_px: 0,
+    registration_rmse_px: 0,
   };
   const activeEnvelope =
     gateData?.envelopes?.[selectedEnvelopeStage] ?? gateData?.envelopes?.gate_decision ?? {};
@@ -652,7 +657,10 @@ export const App: React.FC = () => {
                   : 'bg-amber-500/25 border-amber-500 text-amber-300'
               }`}
             >
-              GATE VERDICT: {decision.toUpperCase()} ({elapsedMs.toFixed(1)} ms / 2800 ms)
+              {gateData?.fixture_only && decision === 'accepted'
+                ? 'PROVISIONAL PASS · FIXTURE ONLY (stage 2 not run)'
+                : `GATE VERDICT: ${decision.toUpperCase()}`}{' '}
+              ({elapsedMs.toFixed(1)} ms{gateData?.elapsed_is_simulated ? ' simulated' : ''} / 2800 ms stage 1)
             </div>
           </div>
 
@@ -761,7 +769,7 @@ export const App: React.FC = () => {
             <PairedWitnessCropComparison
               refCropB64={gateData?.paired_crop_ref_b64 ?? undefined}
               liveCropB64={gateData?.paired_crop_live_b64 ?? undefined}
-              polarityCosine={gateData?.witness_polarity_cosine ?? (decision === 'accepted' ? 0.9999 : -0.9412)}
+              polarityCosine={gateData?.witness_polarity_cosine ?? null}
               silhouetteIou={geom.mask_iou}
               witnessAligned={gateData?.witness_mark_aligned ?? (decision === 'accepted')}
               dualConsensus={gateData?.dual_open_weight_consensus}

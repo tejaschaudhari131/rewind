@@ -19,6 +19,7 @@ moved, or a newer observation superseded it, the late result is DISCARDED (statu
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from pathlib import Path
@@ -27,6 +28,8 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Union
 import numpy as np
 
 from backend.app.gate import run_checkpoint_gate
+
+logger = logging.getLogger("rewind.two_stage")
 from backend.app.providers.baseten_spark import BasetenSparkClient
 from backend.app.providers.baseten_vision import BasetenVisionAuditor
 from backend.app.state_machine import SessionStateMachine
@@ -61,6 +64,30 @@ def provisional_from_stage1(outcome) -> tuple[str, list[str]]:
     if cos >= MIN_WITNESS_COS and g.status == "pass":
         return "provisional_accepted", []
     return "unknown", reasons + ["witness_ambiguous"]
+
+
+def diagnose_stage1_unknown(reason_codes: list, sam_attempts: list, sam_instances: int) -> Dict[str, Any]:
+    """Explain *why* stage 1 is not a clean provisional verdict (for operators and recording preflight)."""
+    statuses = [a.get("status") for a in (sam_attempts or [])]
+    errors = [a.get("error_code") for a in (sam_attempts or []) if a.get("error_code")]
+    if any(str(s).startswith("transport:") for s in statuses):
+        cause = "sam_transport_failure (proxy/tunnel down?)"
+    elif statuses and all(s == 404 for s in statuses):
+        cause = "sam_404 (Meta /v1/models list likely empty or model unavailable)"
+    elif statuses and statuses[-1] in (429,):
+        cause = "sam_rate_limited"
+    elif statuses and statuses[-1] not in (200, None):
+        cause = f"sam_http_{statuses[-1]}"
+    elif "UNKNOWN_TIMEOUT" in reason_codes:
+        cause = "stage1_deadline_exceeded"
+    elif any(r.startswith("sam_") for r in reason_codes) or (statuses and sam_instances == 0):
+        cause = "sam_no_usable_instances"
+    elif "witness_insufficient_evidence" in reason_codes or "witness_ambiguous" in reason_codes:
+        cause = "witness_stripe_not_measurable"
+    else:
+        cause = "other:" + ",".join(map(str, reason_codes))
+    return {"cause": cause, "reason_codes": list(reason_codes), "sam_statuses": statuses,
+            "sam_error_codes": errors, "sam_instances": sam_instances}
 
 
 def final_from_stage2(provisional: str, finding: Optional[str]) -> tuple[str, str, bool, list[str]]:
@@ -127,10 +154,18 @@ async def run_two_stage_gate(
             "instances": len(getattr(d.get("sam_result"), "instances", []) or []),
             "attempts": list(getattr(sam_client, "last_attempts", []) or []),
         },
+        "stage1_diagnostics": None,
         "paired_crop_ref_b64": g.paired_crop_ref_b64,
         "paired_crop_live_b64": g.paired_crop_live_b64,
         "mode": mode,
     }
+
+    if provisional == "unknown":
+        diag = diagnose_stage1_unknown(p_reasons, stage1["sam"]["attempts"], stage1["sam"]["instances"])
+        stage1["stage1_diagnostics"] = diag
+        logger.warning("stage1 unknown: cause=%s reasons=%s sam_statuses=%s sam_errors=%s instances=%s",
+                       diag["cause"], diag["reason_codes"], diag["sam_statuses"], diag["sam_error_codes"],
+                       diag["sam_instances"])
 
     async def _stage2() -> Dict[str, Any]:
         s2_t0 = time.perf_counter()

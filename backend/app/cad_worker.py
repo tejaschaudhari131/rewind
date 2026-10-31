@@ -19,6 +19,7 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -34,7 +35,11 @@ from backend.app.schemas import (
     sha256_hex,
 )
 
-DEFAULT_CAD_OUTPUT_DIR = (Path(__file__).resolve().parents[2] / "fixtures/cad_outputs")
+# Overridable so tests / CI never rewrite the tracked sample artifacts in fixtures/cad_outputs.
+DEFAULT_CAD_OUTPUT_DIR = Path(
+    os.environ.get("REWIND_CAD_OUTPUT_DIR")
+    or (Path(__file__).resolve().parents[2] / "fixtures/cad_outputs")
+)
 
 
 @dataclass

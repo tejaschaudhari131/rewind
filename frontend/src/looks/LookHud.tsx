@@ -11,6 +11,7 @@ export function LookHud() {
   const { phase, s1, res } = c;
   const hints = fixHints(res);
   const holes = s1?.hole_pattern_witness?.live_holes_px ?? [];
+  const rec = new URLSearchParams(window.location.search).get('record') === '1';
   const col = COL[phase];
   const word = WORD[phase];
   return (
@@ -28,7 +29,7 @@ export function LookHud() {
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full rw-blink" style={{ background: DOT[phase] }} />{c.fixture ? 'FIXTURE FEED · not a live camera' : 'LIVE'}</span>
         {c.cfg?.synthetic && <span className="bg-yellow-300 text-black px-2 font-bold">SYNTHETIC</span>}
         <span className="opacity-70">STEP {c.stepNum}/{c.total} · {c.step?.title}</span>
-        <a href="?look=v2" className="ml-auto underline opacity-60 pointer-events-auto">classic view</a>
+        {!rec && <a href="?look=v2" className="ml-auto underline opacity-60 pointer-events-auto">classic view</a>}
       </div>
 
       {/* kinetic verdict */}
@@ -71,12 +72,12 @@ export function LookHud() {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
+        {!rec && <div className="flex gap-2">
           {(c.cfg?.scenarios ?? []).map((s, i) => (
             <button key={s} onClick={() => c.setScenario(s)} className={`px-3 py-2 rounded-lg text-sm font-bold ${c.scenario === s ? 'bg-white text-black' : 'bg-white/10'}`}>{i + 1} {SCENARIO_LABEL[s]}</button>
           ))}
           <select value={c.mode} onChange={(e) => c.setMode(e.target.value as any)} className="bg-white/10 rounded-lg px-2 text-sm"><option value="fixture">Fixture</option><option value="live">Live</option></select>
-        </div>
+        </div>}
         <button onClick={c.run} disabled={phase === 'checking'} className="w-24 h-24 rounded-full border-[6px] border-white grid place-items-center" aria-label="Check this step">
           <span className="w-16 h-16 rounded-full" style={{ background: col }} />
         </button>

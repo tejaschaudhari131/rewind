@@ -12,6 +12,7 @@ export function LookPoster() {
   const hp = s1?.hole_pattern_witness;
   const holes = hp?.live_holes_px ?? [];
   const stop = phase === 'stop';
+  const rec = new URLSearchParams(window.location.search).get('record') === '1';
   const bg = stop ? OR : '#f2f0eb';
   return (
     <div className="min-h-screen h-screen flex flex-col font-poster text-black" style={{ background: bg }} data-look="poster" data-phase={phase}>
@@ -23,7 +24,7 @@ export function LookPoster() {
         <div className="px-6 py-2 text-6xl font-black border-r-[6px] border-black">REWIND</div>
         <div className="px-6 py-2 flex flex-col justify-center border-r-[6px] border-black"><div className="text-xs font-bold">STEP</div><div className="text-5xl font-black leading-none">{String(c.stepNum).padStart(2, '0')}<span className="text-2xl opacity-40">/{String(c.total).padStart(2, '0')}</span></div></div>
         <div className="px-6 py-2 flex items-center text-2xl font-bold flex-1">{c.step?.title}</div>
-        <a href="?look=v2" className="px-6 flex items-center underline border-l-[6px] border-black text-sm">classic view</a>
+        {rec ? <div className="px-6 flex items-center border-l-[6px] border-black"><span className="bg-black text-white px-3 py-1 font-mono-tech text-sm font-bold">{c.cfg?.synthetic ? 'SYNTHETIC FRAMES · ' : ''}{c.fixture ? 'FIXTURE MODE' : 'LIVE'}</span></div> : <a href="?look=v2" className="px-6 flex items-center underline border-l-[6px] border-black text-sm">classic view</a>}
       </header>
 
       <div className="relative flex-1 grid grid-cols-2 min-h-0">
@@ -56,12 +57,12 @@ export function LookPoster() {
           {(lanes(res).length ? lanes(res) : [{ model: 'NO RUN YET', state: 'not_measured', value: '' }]).map((l: any) => <tr key={l.model} className="border-b-2 border-black"><td className="px-3 py-1 font-bold">{l.model}</td><td className={`px-3 ${l.state === 'not_measured' ? 'opacity-50' : ''}`}>{l.value}</td></tr>)}
           <tr><td className="px-3 py-1 font-bold">Manual</td><td className="px-3">{res?.manual?.label ?? 'Manual not updated'}</td></tr>
         </tbody></table>
-        <div className="flex flex-col p-3 gap-2 w-[420px]">
+        {rec ? <div className="flex items-center justify-center p-3 w-[420px] text-5xl font-black">REWIND<br/></div> : <div className="flex flex-col p-3 gap-2 w-[420px]">
           <div className="flex gap-1">{(c.cfg?.scenarios ?? []).map((s, i) => <button key={s} onClick={() => c.setScenario(s)} className={`flex-1 border-[3px] border-black px-1 py-1 text-xs font-bold ${c.scenario === s ? 'bg-black text-white' : 'bg-white'}`}>{i + 1} {SCENARIO_LABEL[s]}</button>)}</div>
           <select value={c.mode} onChange={(e) => c.setMode(e.target.value as any)} className="border-[3px] border-black bg-white font-bold"><option value="fixture">FIXTURE</option><option value="live">LIVE</option></select>
           <button onClick={c.run} disabled={phase === 'checking'} className="flex-1 bg-black text-white text-4xl font-black hover:opacity-90">CHECK ␣</button>
           {c.err && <div className="text-xs">{c.err}</div>}
-        </div>
+        </div>}
       </footer>
     </div>
   );

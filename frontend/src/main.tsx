@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { FurnitureWorkbench } from './components/FurnitureWorkbench';
+import { LookPaper } from './looks/LookPaper';
+import { LookHud } from './looks/LookHud';
+import { LookPoster } from './looks/LookPoster';
 import './index.css';
+
+// ?look=a (paper manual) | b (camera HUD) | c (brutalist poster); anything else = v2 default.
+const LOOK = new URLSearchParams(window.location.search).get('look');
 
 function Root() {
   const [view, setView] = useState<'furniture' | 'cad'>('furniture');
@@ -24,6 +30,6 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <Root />
+    {LOOK === 'a' ? <LookPaper /> : LOOK === 'b' ? <LookHud /> : LOOK === 'c' ? <LookPoster /> : <Root />}
   </React.StrictMode>
 );

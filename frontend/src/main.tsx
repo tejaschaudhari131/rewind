@@ -7,11 +7,15 @@ import './index.css';
 function Root() {
   const [view, setView] = useState<'furniture' | 'cad'>('furniture');
   return (
-    <div className="min-h-screen bg-slate-950">
-      <nav className="flex gap-2 px-4 py-2 border-b border-slate-800 bg-slate-900 text-xs">
-        <span className="font-bold text-white mr-3">REWIND</span>
-        <button onClick={() => setView('furniture')} className={view === 'furniture' ? 'text-sky-300' : 'text-slate-400'}>Flat-pack assembly check</button>
-        <button onClick={() => setView('cad')} className={view === 'cad' ? 'text-sky-300' : 'text-slate-400'}>Slider-crank / CAD workbench (advanced)</button>
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,#0f172a,#020617_60%)]">
+      <nav className="flex items-center gap-4 px-5 py-3 border-b border-slate-800/80">
+        <span className="font-black text-white text-lg tracking-tight">⏪ REWIND</span>
+        <span className="text-slate-400 text-sm hidden md:inline">watches your hands and says stop</span>
+        <span className="hidden lg:inline text-[11px] text-slate-500 border border-slate-700 rounded-full px-2 py-0.5">fail-closed · blinded · audited</span>
+        <div className="ml-auto flex gap-1 text-xs">
+          <button onClick={() => setView('furniture')} className={`px-3 py-1.5 rounded-lg ${view === 'furniture' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>Assembly check</button>
+          <button onClick={() => setView('cad')} className={`px-3 py-1.5 rounded-lg ${view === 'cad' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>Advanced · CAD workbench</button>
+        </div>
       </nav>
       {view === 'furniture' ? <FurnitureWorkbench /> : <App />}
     </div>

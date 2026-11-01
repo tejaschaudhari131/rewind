@@ -13,3 +13,26 @@ body {
 .font-mono-tech {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
+
+/* ---- REWIND v2 verdict motion (all disabled under prefers-reduced-motion) ---- */
+@keyframes rw-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(9px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(4px)} }
+@keyframes rw-pop { 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.08);opacity:1} 100%{transform:scale(1)} }
+@keyframes rw-pulse-ring { 0%{box-shadow:0 0 0 0 rgba(56,189,248,.55)} 100%{box-shadow:0 0 0 22px rgba(56,189,248,0)} }
+@keyframes rw-scan { 0%{top:0%} 100%{top:100%} }
+@keyframes rw-flash { 0%{opacity:.55} 100%{opacity:0} }
+@keyframes rw-draw { from{stroke-dashoffset:60} to{stroke-dashoffset:0} }
+@keyframes rw-cursor { 0%{transform:translate(160px,90px);opacity:0} 20%{opacity:1} 70%{transform:translate(0,0)} 85%{transform:translate(0,0) scale(.85)} 100%{transform:translate(0,0) scale(1)} }
+@keyframes rw-fadeup { from{transform:translateY(8px);opacity:0} to{transform:none;opacity:1} }
+@keyframes rw-marker { from{r:0;opacity:0} to{opacity:1} }
+.rw-shake{animation:rw-shake .45s ease-in-out}
+.rw-pop{animation:rw-pop .35s cubic-bezier(.2,.9,.3,1.3)}
+.rw-pulse{animation:rw-pulse-ring 1.2s ease-out infinite}
+.rw-scanline{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#38bdf8,transparent);box-shadow:0 0 18px #38bdf8;animation:rw-scan 1.4s linear infinite alternate}
+.rw-flash{animation:rw-flash .6s ease-out forwards}
+.rw-check path{stroke-dasharray:60;animation:rw-draw .5s ease-out .55s both}
+.rw-cursor{animation:rw-cursor 1.1s ease-in-out both}
+.rw-fadeup{animation:rw-fadeup .3s ease-out both}
+@media (prefers-reduced-motion: reduce){
+  .rw-shake,.rw-pop,.rw-pulse,.rw-flash,.rw-cursor,.rw-fadeup,.rw-check path{animation:none!important}
+  .rw-scanline{display:none}
+}

@@ -14,7 +14,7 @@ pip install -r requirements.txt && (cd frontend && npm install && npm run build)
 python -m uvicorn backend.app.main:app --port 8000   # open http://127.0.0.1:8000
 ```
 
-Or `make install && make demo`. Fixture mode runs fully offline: every model lane is reported as `NOT_MEASURED`, a fixture pass is shown as **PROVISIONAL PASS · FIXTURE ONLY (stage 2 not run)**, and the deterministic repair card is labelled `deterministic_overlay`, `measured: false`. Run the tests with `make test` (120 tests; live smoke tests skip without keys).
+Or `make install && make demo`. Fixture mode runs fully offline: every model lane is reported as `NOT_MEASURED`, a fixture pass is shown as **PROVISIONAL PASS · FIXTURE ONLY (stage 2 not run)**, and the deterministic repair card is labelled `deterministic_overlay`, `measured: false`. Run the tests with `make test` (139 tests; live smoke tests skip without keys).
 
 **Live mode** (optional): `cp .env.example .env`, add `META_API_KEY` and `BASETEN_API_KEY`, run `make preflight` (checks the Meta `/v1/models` list via the configured proxy and Baseten reachability; free calls), then switch the workbench to `live`.
 
@@ -151,7 +151,7 @@ rewind/
 ├── docs/
 │   ├── PHASE1_LIVE_SMOKE_REPORT.md    # Live Meta Model API latencies, token grammar & wire traces
 │   └── screenshots/                   # Full HD workbench screenshots
-└── tests/                             # 95 unit, contract, pipeline, UI, and live Meta API smoke tests
+└── tests/                             # 139 unit, contract, pipeline, UI, and live Meta API smoke tests
 ```
 
 ---
@@ -167,7 +167,7 @@ cp .env.example .env   # optional: only needed for live mode
 # Add your META_API_KEY from https://dev.meta.ai to .env
 ```
 
-### 2. Run the Full 120-Test Suite (live smoke tests skip without keys)
+### 2. Run the Full 139-Test Suite (live smoke tests skip without keys)
 ```bash
 pytest -v
 ```

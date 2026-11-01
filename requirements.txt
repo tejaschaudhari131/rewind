@@ -17,5 +17,7 @@ networkx==3.7
 reportlab==5.1.0
 pytest==9.2.0
 pytest-asyncio==1.4.1
+# Muse Wonder manual check-off (backend/app/manual_checkoff.py) drives headless Chrome via Playwright
+playwright==1.64.1
 # Optional: only for `modal deploy modal_app/glimmer_server.py`
 # modal==1.6.3

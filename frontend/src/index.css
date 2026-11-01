@@ -36,3 +36,27 @@ body {
   .rw-shake,.rw-pop,.rw-pulse,.rw-flash,.rw-cursor,.rw-fadeup,.rw-check path{animation:none!important}
   .rw-scanline{display:none}
 }
+
+/* ---- v3 looks ---- */
+@keyframes rw-flip3d { 0%,15%{transform:perspective(500px) rotateX(0)} 55%,100%{transform:perspective(500px) rotateX(180deg)} }
+@keyframes rw-wobble { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-6deg)} 75%{transform:rotate(6deg)} }
+@keyframes rw-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+@keyframes rw-dash { to{stroke-dashoffset:0} }
+@keyframes rw-letter { 0%{transform:translateY(40%) scale(1.6);opacity:0;filter:blur(8px)} 100%{transform:none;opacity:1;filter:none} }
+@keyframes rw-blink { 50%{opacity:.25} }
+@keyframes rw-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+@keyframes rw-ghost { 0%,100%{opacity:.18} 50%{opacity:.42} }
+.rw-flip3d{animation:rw-flip3d 2.2s ease-in-out infinite;transform-origin:50% 50%}
+.rw-wobble{animation:rw-wobble .5s ease-in-out 3}
+.rw-bounce{animation:rw-bounce .9s ease-in-out infinite}
+.rw-draw-path{stroke-dasharray:400;stroke-dashoffset:400;animation:rw-dash .9s ease-out .2s forwards}
+.rw-letter{display:inline-block;animation:rw-letter .42s cubic-bezier(.2,.9,.2,1) both}
+.rw-blink{animation:rw-blink 1s steps(2) infinite}
+.rw-marquee{animation:rw-marquee 18s linear infinite}
+.rw-ghost{animation:rw-ghost 2.4s ease-in-out infinite}
+.font-paper{font-family:"Verdana","DejaVu Sans",system-ui,sans-serif}
+.font-poster{font-family:"Helvetica Neue","Arial Black","DejaVu Sans",Arial,sans-serif;letter-spacing:-.04em}
+@media (prefers-reduced-motion: reduce){
+  .rw-flip3d,.rw-wobble,.rw-bounce,.rw-letter,.rw-blink,.rw-marquee,.rw-ghost{animation:none!important}
+  .rw-draw-path{animation:none!important;stroke-dashoffset:0}
+}

@@ -7,7 +7,7 @@ import { LookHud } from './looks/LookHud';
 import { LookPoster } from './looks/LookPoster';
 import './index.css';
 
-// ?look=a (paper manual) | b (camera HUD) | c (brutalist poster); anything else = v2 default.
+// Default (no param) = look A paper manual. ?look=b camera HUD, ?look=c poster, ?look=v2 classic dashboard.
 const LOOK = new URLSearchParams(window.location.search).get('look');
 
 function Root() {
@@ -17,6 +17,7 @@ function Root() {
       <nav className="flex items-center gap-4 px-5 py-3 border-b border-slate-800/80">
         <span className="font-black text-white text-lg tracking-tight">⏪ REWIND</span>
         <span className="text-slate-400 text-sm hidden md:inline">watches your hands and says stop</span>
+        <a href="/" className="text-xs text-slate-300 underline">new look</a>
         <span className="hidden lg:inline text-[11px] text-slate-500 border border-slate-700 rounded-full px-2 py-0.5">fail-closed · blinded · audited</span>
         <div className="ml-auto flex gap-1 text-xs">
           <button onClick={() => setView('furniture')} className={`px-3 py-1.5 rounded-lg ${view === 'furniture' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>Assembly check</button>
@@ -30,6 +31,6 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    {LOOK === 'a' ? <LookPaper /> : LOOK === 'b' ? <LookHud /> : LOOK === 'c' ? <LookPoster /> : <Root />}
+    {LOOK === 'v2' ? <Root /> : LOOK === 'b' ? <LookHud /> : LOOK === 'c' ? <LookPoster /> : <LookPaper />}
   </React.StrictMode>
 );

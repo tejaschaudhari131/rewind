@@ -2,6 +2,17 @@
 
 Layout: overhead phone feed of the hands (large), with the REWIND workbench as a side panel. Captions are always on. Every number shown on screen must come from a real recorded run; leave a placeholder (`[measured]`) until then.
 
+
+## Which UI look to show when
+
+| Time | Look | URL | Notes |
+|---|---|---|---|
+| 0:00–0:15 | **B · Camera HUD** (opener) | `/?look=b&record=1&scenario=ikea_fail_holes_out` | Full-bleed frame, kinetic STOP. Put the **required opening line** (`docs/launch/VIDEO_OPENING_LINE.md`) on screen and in the voiceover during these 15 s. `record=1` hides the demo-frame picker, mode dropdown and classic-view link but keeps the FIXTURE FEED / SYNTHETIC labels. Press `space` to run and `1`/`2`/`3` to switch frames (keys still work with the controls hidden). |
+| 0:15–2:45 | **A · Paper manual** (main walkthrough, default `/`) | `/` then keys `1`/`2`/`3` + `space` | The helper reacts to each verdict, and the "How to fix it" card shows the flip hint. Step-complete (helper thumbs-up plus "Step 3 ticked by Muse Wonder") appears **only** when the server returns a real live `accepted` with the manual updated. Fixture mode never shows it. Do not use `docs/screenshots/ui_v3/a_paper/06_ok_step_complete_UI_MOCK.png` as footage. |
+| 2:45–3:00 | **C · Poster** (end card) | `/?look=c&record=1&scenario=ikea_fail_holes_out` | "MANUAL 12 / YOU 0 / STOP." Same frame as the X image (`docs/launch/x_post_image_c.png`). |
+
+If a beat below uses fixture or synthetic frames, the on-screen FIXTURE/SYNTHETIC labels must stay visible. The 0:00–0:10 "cold open" beat below happens inside the B opener window.
+
 **0:00–0:10 · Cold open on the catch**
 Hands place the side panel on the frame, cam-lock holes facing out. "Check step three." The overlay shows the outline match (`IoU [measured]`, green), then the gate turns RED: "REJECT: panel reversed, holes facing out." The paired crops show the reference and live holes side by side.
 

@@ -39,7 +39,19 @@ REWIND never fabricates token counts, request IDs, or model latencies. Every rec
 
 ---
 
-## 2. Live 4-Pane Industrial Operator Workbench
+## 2. Assembly Check UI (default look: "paper manual")
+
+Open `/` for the main UI. Alternates: `?look=b` camera HUD (video opener, add `&record=1` for clean capture), `?look=c` poster, `?look=v2` classic dashboard. All screenshots below are real **fixture** runs on **synthetic** frames, and the UI labels them as such.
+
+![REWIND look A: STOP, panel flipped, holes facing out](docs/screenshots/ui_v3/a_paper/00_default_stop.png)
+
+![REWIND look A: provisional pass in fixture mode, manual not ticked](docs/screenshots/ui_v3/a_paper/00_default_provisional.png)
+
+<sub>More states, including camera HUD and poster: `docs/screenshots/ui_v3/`. The step-complete image there is a stamped **UI MOCK**; no accepted live run exists on the synthetic frames.</sub>
+
+---
+
+## 2b. Live 4-Pane Industrial Operator Workbench
 
 ### Verified Checkpoint Pass & Interactive 3D `.STL` / `.STEP` Replacement Link
 ![REWIND Workbench — Verified Pass & 3D CAD Preview](docs/screenshots/workbench_pass_and_3d_cad.png)

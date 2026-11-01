@@ -60,11 +60,11 @@ export function LookPaper() {
           </div>
         </header>
 
-        <div className="flex-1 grid grid-cols-[150px_1fr_460px] gap-6 pt-5 min-h-0">
+        <div className="flex-1 grid grid-cols-[84px_1fr_330px] 2xl:grid-cols-[150px_1fr_460px] gap-4 2xl:gap-6 pt-5 min-h-0">
           {/* step numbers like a booklet */}
           <div className="flex flex-col items-center gap-3">
             {Array.from({ length: c.total }, (_, i) => i + 1).map((n) => (
-              <div key={n} className={`grid place-items-center rounded-full border-[5px] border-[#111] font-black ${n === c.stepNum ? 'w-28 h-28 text-6xl bg-white' : 'w-12 h-12 text-xl opacity-30'}`}>
+              <div key={n} className={`grid place-items-center rounded-full border-[5px] border-[#111] font-black ${n === c.stepNum ? 'w-20 h-20 text-4xl 2xl:w-28 2xl:h-28 2xl:text-6xl bg-white' : 'w-10 h-10 text-lg 2xl:w-12 2xl:h-12 2xl:text-xl opacity-30'}`}>
                 {n === c.stepNum && c.ticked ? '✓' : n}
               </div>
             ))}
@@ -74,13 +74,13 @@ export function LookPaper() {
           {/* the page: manual drawing + camera inset */}
           <div className="relative min-h-0 flex flex-col">
             <div className="flex items-start gap-6">
-              <div className="w-72 shrink-0">
+              <div className="w-52 2xl:w-72 shrink-0">
                 <div className="border-[5px] border-[#111] bg-white p-1 rotate-[-1.5deg]"><img src={REFERENCE} alt="manual reference" className="grayscale contrast-150" /></div>
                 <div className="text-sm font-bold mt-2">The manual says: {c.step?.title ?? '…'}</div>
               </div>
               <div className="flex-1 pt-2">
-                <div className={`font-black leading-[.85] ${stop ? 'text-[#d71920]' : ''}`} style={{ fontSize: stop ? 190 : 120 }} data-testid="furniture-verdict" role="status" aria-live="assertive">{BIG[phase]}</div>
-                <div className="text-2xl mt-3 max-w-[640px]">
+                <div className={`font-black leading-[.85] ${stop ? 'text-[#d71920]' : ''}`} style={{ fontSize: stop ? 'clamp(110px,10vw,190px)' : 'clamp(72px,6.3vw,120px)' }} data-testid="furniture-verdict" role="status" aria-live="assertive">{BIG[phase]}</div>
+                <div className="text-xl 2xl:text-2xl mt-3 max-w-[640px]">
                   {stop ? "This panel is in, but it's the wrong way round." : phase === 'ok' ? 'Both stages agree. Next step.' : phase === 'provisional' ? 'Local checks pass. Fixture mode: not model-confirmed, so not ticked.' : phase === 'unknown' ? "REWIND won't guess. Reshoot it." : phase === 'checking' ? (c.mode === 'fixture' ? 'Fixture: local witnesses only, no model calls.' : 'SAM 3.1 and Muse Spark Open are looking.') : 'Hold the part up to the camera, then press space.'}
                 </div>
               </div>
@@ -89,31 +89,32 @@ export function LookPaper() {
             <div className={`relative mt-5 flex-1 min-h-0 border-[6px] border-[#111] bg-white p-2 ${stop ? 'shadow-[14px_14px_0_#d71920]' : 'shadow-[14px_14px_0_#111]'}`}>
               <FrameSvg src={FRAME[c.scenario]} holes={holes} className="w-full h-full" markerColor={INK} strokeW={6} />
               <div className="absolute left-4 top-4 bg-white border-[3px] border-[#111] px-2 text-sm font-bold">YOU · camera</div>
+              {c.ticked && <div className="absolute right-6 top-6 rotate-[6deg] bg-[#1f9d55] text-white border-[4px] border-[#111] px-4 py-2 text-2xl font-black rw-pop" data-testid="manual-ticked">✓ Step {c.stepNum} ticked by Muse Wonder</div>}
               {phase === 'checking' && <div className="rw-scanline" style={{ background: 'linear-gradient(90deg,transparent,#111,transparent)', boxShadow: 'none' }} />}
               {s1 && holes.length === 0 && s1.hole_pattern_witness?.status === 'fail' &&
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-6 bg-[#d71920] text-white text-3xl font-black px-5 py-2 border-[4px] border-[#111]">0 of {s1.hole_pattern_witness.reference_hole_count} holes showing</div>}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-6 bg-[#d71920] text-white text-2xl 2xl:text-3xl whitespace-nowrap font-black px-5 py-2 border-[4px] border-[#111]">0 of {s1.hole_pattern_witness.reference_hole_count} holes showing</div>}
             </div>
           </div>
 
           {/* the helper + fix */}
-          <aside className="flex flex-col min-h-0">
-            <div className="h-[300px]"><Buddy phase={phase} /></div>
+          <aside className="flex flex-col min-h-0 overflow-y-auto">
+            <div className="h-[140px] 2xl:h-[300px] shrink-0"><Buddy phase={phase} /></div>
             {hints.length > 0 && (
-              <div className="border-[5px] border-[#111] bg-white p-4 mt-2" data-testid="fix-hint">
+              <div className="border-[5px] border-[#111] bg-white p-3 2xl:p-4 mt-2" data-testid="fix-hint">
                 <div className="text-sm font-black uppercase tracking-wide mb-2">How to fix it</div>
                 {hints.map((h) => (
-                  <div key={h.kind} className="flex items-center gap-4 py-1"><FlipHint kind={h.kind} /><div className="text-xl font-bold">{h.text}</div></div>
+                  <div key={h.kind} className="flex items-center gap-4 py-1"><FlipHint kind={h.kind} size={96} /><div className="text-base 2xl:text-xl font-bold">{h.text}</div></div>
                 ))}
                 <div className="text-[11px] opacity-60 mt-1">DETERMINISTIC hint from the failed witness, not model-generated</div>
               </div>
             )}
             {s1 && (
-              <div className="mt-3 space-y-1 text-lg">
-                <div>{s1.hole_pattern_witness?.status === 'pass' ? '☑' : '☒'} Holes: expected {s1.hole_pattern_witness?.reference_hole_count}, saw {s1.hole_pattern_witness?.live_hole_count}</div>
-                <div>{s1.tape_edge_witness?.status === 'pass' ? '☑' : '☒'} Taped edge: cos {s1.tape_edge_witness?.polarity_cosine}</div>
+              <div className="mt-3 space-y-1 text-sm 2xl:text-lg">
+                <div>{s1.hole_pattern_witness?.status === 'pass' ? '☑' : s1.hole_pattern_witness?.status === 'fail' ? '☒' : '◻'} Holes: {s1.hole_pattern_witness?.status === 'insufficient_evidence' || s1.hole_pattern_witness?.live_hole_count == null ? 'not measurable in this frame' : `expected ${s1.hole_pattern_witness?.reference_hole_count}, saw ${s1.hole_pattern_witness?.live_hole_count}`}</div>
+                <div>{s1.tape_edge_witness?.status === 'pass' ? '☑' : s1.tape_edge_witness?.status === 'fail' ? '☒' : '◻'} Taped edge: {s1.tape_edge_witness?.polarity_cosine == null ? 'not measurable in this frame' : `cos ${s1.tape_edge_witness.polarity_cosine}`}</div>
               </div>
             )}
-            <div className="mt-auto border-t-[4px] border-[#111] pt-2 text-sm font-mono-tech" data-testid="model-trace">
+            <div className="mt-auto border-t-[4px] border-[#111] pt-2 text-xs 2xl:text-sm font-mono-tech" data-testid="model-trace">
               {(lanes(res).length ? lanes(res) : [{ model: 'No run yet', state: 'not_measured', value: '' } as any]).map((l: any) => (
                 <div key={l.model} className="flex justify-between"><span className="font-bold">{l.model}</span><span className={l.state === 'measured' ? '' : 'opacity-50'}>{l.value}</span></div>
               ))}

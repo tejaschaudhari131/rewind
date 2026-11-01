@@ -41,7 +41,7 @@ export function lanes(r: any): Lane[] {
   return [
     { model: 'Local witnesses', state: 'local', value: s1.stage1_elapsed_ms != null ? `${s1.stage1_elapsed_ms} ms` : 'n/a' },
     { model: 'SAM 3.1', state: !sam.called ? 'not_measured' : sam.error ? 'error' : 'measured', value: !sam.called ? 'NOT_MEASURED' : sam.error ? 'error · failed closed' : `${sam.latency_ms} ms · ${sam.instances} found` },
-    { model: 'Muse Spark Open', state: s2.measured ? 'measured' : s2.error ? 'error' : 'not_measured', value: s2.measured ? `${s2.wall_ms} ms · ${s2.model_finding}` : s2.error ? 'error' : 'NOT_MEASURED' },
+    { model: 'Muse Spark Open', state: s2.measured ? 'measured' : s2.error ? 'error' : 'not_measured', value: s2.measured ? `${s2.wall_ms ?? 'n/a'} ms · ${s2.model_finding}` : s2.error ? 'error' : 'NOT_MEASURED' },
     { model: 'Muse Wonder', state: m.measured ? 'measured' : 'not_measured', value: m.measured ? `${m.wall_ms ?? 'n/a'} ms · ${m.status}` : 'NOT_MEASURED' },
   ];
 }

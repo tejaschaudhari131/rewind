@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // Shared data hook for the v3 looks. Every value comes from /api/furniture/*; nothing is invented here.
 export type Phase = 'idle' | 'checking' | 'stop' | 'ok' | 'provisional' | 'unknown' | 'error';
 export type Cfg = { synthetic: boolean; total_steps: number; scenarios: string[]; steps: Array<{ step_id: string; label: string; title: string; sam_concept_prompt: string }> };
-export type HistoryItem = { scenario: string; phase: Phase; res: any; at: string };
+export type HistoryItem = { scenario: string; phase: Phase; res: any; at: string; still?: Still | null };
+export type Source = 'fixture' | 'upload' | 'camera';
+/** A real frame that was actually sent to the gate (object URL + pixel size, for aligned markers). */
+export type Still = { url: string; w: number; h: number; kind: 'camera' | 'upload' | 'video_frame' };
+export type Grab = () => Promise<{ blob: Blob; w: number; h: number; kind: Still['kind']; name: string } | null>;
+export const SOURCE_LABEL: Record<Source, string> = { fixture: 'FIXTURE', upload: 'UPLOADED PHOTO', camera: 'LIVE CAMERA' };
 
 export const FRAME: Record<string, string> = {
   ikea_pass_step3: '/fixtures/ikea/checkpoint_pass_step3.png',
@@ -56,6 +61,22 @@ export function useRewindCheck() {
   const [err, setErr] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const runId = useRef(0);
+  const qs = q.get('source');
+  const [source, setSourceRaw] = useState<Source>(qs === 'camera' || qs === 'upload' ? qs : 'fixture');
+  const [still, setStill] = useState<Still | null>(null);
+  const [saveEval, setSaveEval] = useState(false);
+  const [autoCheck, setAutoCheck] = useState(false);
+  const [preflight, setPreflight] = useState<any>(null);
+  const grabRef = useRef<Grab | null>(null);
+  const setSource = (s: Source) => { runId.current++; setSourceRaw(s); setRes(null); setPhase('idle'); setStill(null); setErr(null); if (s !== 'fixture') setMode('live'); };
+  useEffect(() => { if (qs === 'camera' || qs === 'upload') setMode('live'); }, []);
+  const needsApi = mode === 'live';
+  useEffect(() => {
+    if (!needsApi) return;
+    let stop = false;
+    const ping = () => fetch('/api/furniture/preflight').then((r) => r.json()).then((j) => { if (!stop) setPreflight(j); }).catch(() => { if (!stop) setPreflight({ meta_reachable: false, error: 'server_unreachable' }); });
+    ping(); const t = setInterval(ping, 30000); return () => { stop = true; clearInterval(t); };
+  }, [needsApi]);
   useEffect(() => { fetch('/api/furniture/config').then((r) => r.json()).then(setCfg).catch((e) => setErr(String(e))); }, []);
   const step = cfg?.steps[0];
   const total = cfg?.total_steps ?? 8;
@@ -65,28 +86,45 @@ export function useRewindCheck() {
     const id = ++runId.current;
     setPhase('checking'); setErr(null); setRes(null);
     try {
-      const r = await fetch('/api/furniture/checkpoint/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario, mode, step_id: step?.step_id, check_off_manual: true }) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      let r: Response; let sent: Still | null = null;
+      if (source === 'fixture') {
+        r = await fetch('/api/furniture/checkpoint/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario, mode, step_id: step?.step_id, check_off_manual: true }) });
+      } else {
+        const g = grabRef.current ? await grabRef.current() : null;
+        if (!g) throw new Error(source === 'camera' ? 'Camera not ready' : 'Choose a photo or video first');
+        sent = { url: URL.createObjectURL(g.blob), w: g.w, h: g.h, kind: g.kind };
+        if (id === runId.current) setStill(sent);
+        const fd = new FormData();
+        fd.append('file', g.blob, g.name); fd.append('source', g.kind); fd.append('mode', mode);
+        if (step?.step_id) fd.append('step_id', step.step_id);
+        fd.append('check_off_manual', 'true'); fd.append('save_to_eval', saveEval ? 'true' : 'false');
+        r = await fetch('/api/furniture/checkpoint/verify_frame', { method: 'POST', body: fd });
+      }
+      if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch { /* */ } throw new Error(`HTTP ${r.status}${d ? ': ' + d : ''}`); }
       const j = await r.json();
       if (id !== runId.current) return;
       const p = phaseOf(j);
       setRes(j); setPhase(p);
-      setHistory((h) => [...h, { scenario, phase: p, res: j, at: new Date().toLocaleTimeString() }].slice(-12));
+      setHistory((h) => [...h, { scenario, phase: p, res: j, at: new Date().toLocaleTimeString(), still: sent }].slice(-12));
     } catch (e) { if (id === runId.current) { setErr(String(e)); setPhase('error'); } }
-  }, [scenario, mode, step?.step_id]);
+  }, [scenario, mode, step?.step_id, source, saveEval]);
   /** Rewind: restore an earlier real result from this session (no new call). */
-  const rewindTo = (h: HistoryItem) => { runId.current++; setScenarioRaw(h.scenario); setRes(h.res); setPhase(h.phase); };
+  const rewindTo = (h: HistoryItem) => { runId.current++; setScenarioRaw(h.scenario); setRes(h.res); setPhase(h.phase); setStill(h.still ?? null); };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'SELECT') return;
+      const tg = (e.target as HTMLElement)?.tagName; if (tg === 'SELECT' || tg === 'INPUT') return;
       if (e.code === 'Space') { e.preventDefault(); run(); }
       const k = Number(e.key), list = cfg?.scenarios ?? [];
-      if (k >= 1 && k <= list.length) setScenario(list[k - 1]);
+      if (source === 'fixture' && k >= 1 && k <= list.length) setScenario(list[k - 1]);
     };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
-  }, [run, cfg]);
-  const fixture = res ? res.mode !== 'live' : mode === 'fixture';
+  }, [run, cfg, source]);
+  const fixture = res ? (res.mode !== 'live' && !res.input_source) : (source === 'fixture' && mode === 'fixture');
+  const inputLabel: string = res?.input_label ?? SOURCE_LABEL[source];
+  const realInput = source !== 'fixture';
+  const apiDown = needsApi && preflight && preflight.meta_reachable === false;
   return { cfg, step, total, stepNum, scenario, setScenario, mode, setMode, res, phase, err, run, history, rewindTo, fixture,
-    ticked: res?.manual?.status === 'updated', s1: res?.stage1 };
+    ticked: res?.manual?.status === 'updated', s1: res?.stage1,
+    source, setSource, still, saveEval, setSaveEval, autoCheck, setAutoCheck, preflight, apiDown, grabRef, inputLabel, realInput };
 }

@@ -1,5 +1,6 @@
 import { useRewindCheck, FRAME, REFERENCE, SCENARIO_LABEL, fixHints, lanes, Phase } from './useRewindCheck';
-import { FrameSvg, FlipHint } from './Shared';
+import { FlipHint } from './Shared';
+import { FrameStage, SourceSwitch, ApiBanner } from './FrameInput';
 
 // Look A, "Paper manual comes alive": a flat-pack instruction page with a line-art helper character.
 const INK = '#111';
@@ -47,22 +48,22 @@ export function LookPaper() {
   const holes = s1?.hole_pattern_witness?.live_holes_px ?? [];
   const stop = phase === 'stop';
   return (
-    <div className="min-h-screen font-paper text-[#111]" style={{ background: '#efe9dc' }} data-look="paper" data-phase={phase}>
-      <div className="mx-auto max-w-[1880px] p-6 h-screen flex flex-col">
+    <><ApiBanner c={c} /><div className="min-h-screen font-paper text-[#111]" style={{ background: '#efe9dc' }} data-look="paper" data-phase={phase}>
+      <div className="mx-auto max-w-[1880px] p-3 md:p-6 md:h-screen flex flex-col">
         {/* page header like an instruction booklet */}
-        <header className="flex items-end gap-6 border-b-[6px] border-[#111] pb-3">
+        <header className="flex flex-wrap items-end gap-3 md:gap-6 border-b-[6px] border-[#111] pb-3">
           <div className="text-5xl font-black tracking-tight">REWIND</div>
           <div className="text-lg pb-1">watches your hands and says stop</div>
           <div className="ml-auto flex items-center gap-3 pb-1">
-            {c.cfg?.synthetic && <span className="border-[3px] border-[#111] px-2 py-0.5 text-sm font-bold bg-[#ffd400]">SYNTHETIC FIXTURE</span>}
-            <span className="border-[3px] border-[#111] px-2 py-0.5 text-sm font-bold">{c.fixture ? 'FIXTURE · no model calls' : 'LIVE · Meta models'}</span>
+            {c.cfg?.synthetic && !c.realInput && <span className="border-[3px] border-[#111] px-2 py-0.5 text-sm font-bold bg-[#ffd400]">SYNTHETIC FIXTURE</span>}
+            <span className="border-[3px] border-[#111] px-2 py-0.5 text-sm font-bold">{c.realInput ? `${c.inputLabel} · ${c.mode === 'live' ? 'Meta models' : 'local checks only'}` : c.fixture ? 'FIXTURE · no model calls' : 'LIVE · Meta models'}</span>
             <a href="?look=v2" className="text-sm underline">classic view</a>
           </div>
         </header>
 
-        <div className="flex-1 grid grid-cols-[84px_1fr_330px] 2xl:grid-cols-[150px_1fr_460px] gap-4 2xl:gap-6 pt-5 min-h-0">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-[84px_1fr_330px] 2xl:grid-cols-[150px_1fr_460px] gap-4 2xl:gap-6 pt-5 min-h-0">
           {/* step numbers like a booklet */}
-          <div className="flex flex-col items-center gap-3">
+          <div className="hidden md:flex flex-col items-center gap-3">
             {Array.from({ length: c.total }, (_, i) => i + 1).map((n) => (
               <div key={n} className={`grid place-items-center rounded-full border-[5px] border-[#111] font-black ${n === c.stepNum ? 'w-20 h-20 text-4xl 2xl:w-28 2xl:h-28 2xl:text-6xl bg-white' : 'w-10 h-10 text-lg 2xl:w-12 2xl:h-12 2xl:text-xl opacity-30'}`}>
                 {n === c.stepNum && c.ticked ? '✓' : n}
@@ -74,21 +75,21 @@ export function LookPaper() {
           {/* the page: manual drawing + camera inset */}
           <div className="relative min-h-0 flex flex-col">
             <div className="flex items-start gap-6">
-              <div className="w-52 2xl:w-72 shrink-0">
+              <div className="hidden md:block w-52 2xl:w-72 shrink-0">
                 <div className="border-[5px] border-[#111] bg-white p-1 rotate-[-1.5deg]"><img src={REFERENCE} alt="manual reference" className="grayscale contrast-150" /></div>
                 <div className="text-sm font-bold mt-2">The manual says: {c.step?.title ?? '…'}</div>
               </div>
               <div className="flex-1 pt-2">
                 <div className={`font-black leading-[.85] ${stop ? 'text-[#d71920]' : ''}`} style={{ fontSize: stop ? 'clamp(110px,10vw,190px)' : 'clamp(72px,6.3vw,120px)' }} data-testid="furniture-verdict" role="status" aria-live="assertive">{BIG[phase]}</div>
                 <div className="text-xl 2xl:text-2xl mt-3 max-w-[640px]">
-                  {stop ? "This panel is in, but it's the wrong way round." : phase === 'ok' ? 'Both stages agree. Next step.' : phase === 'provisional' ? 'Local checks pass. Fixture mode: not model-confirmed, so not ticked.' : phase === 'unknown' ? "REWIND won't guess. Reshoot it." : phase === 'checking' ? (c.mode === 'fixture' ? 'Fixture: local witnesses only, no model calls.' : 'SAM 3.1 and Muse Spark Open are looking.') : 'Hold the part up to the camera, then press space.'}
+                  {stop ? "This panel is in, but it's the wrong way round." : phase === 'ok' ? 'Both stages agree. Next step.' : phase === 'provisional' ? (c.fixture ? 'Local checks pass. Fixture mode: not model-confirmed, so not ticked.' : 'Local checks pass, but the model did not confirm, so not ticked.') : phase === 'unknown' ? "REWIND won't guess. Reshoot it." : phase === 'checking' ? (c.mode === 'fixture' && !c.realInput ? 'Fixture: local witnesses only, no model calls.' : 'SAM 3.1 and Muse Spark Open are looking.') : 'Hold the part up to the camera, then press space.'}
                 </div>
               </div>
             </div>
             {/* camera inset as a figure on the page */}
-            <div className={`relative mt-5 flex-1 min-h-0 border-[6px] border-[#111] bg-white p-2 ${stop ? 'shadow-[14px_14px_0_#d71920]' : 'shadow-[14px_14px_0_#111]'}`}>
-              <FrameSvg src={FRAME[c.scenario]} holes={holes} className="w-full h-full" markerColor={INK} strokeW={6} />
-              <div className="absolute left-4 top-4 bg-white border-[3px] border-[#111] px-2 text-sm font-bold">YOU · camera</div>
+            <div className={`relative mt-5 flex-1 min-h-[56vw] md:min-h-0 border-[6px] border-[#111] bg-white p-2 ${stop ? 'shadow-[14px_14px_0_#d71920]' : 'shadow-[14px_14px_0_#111]'}`}>
+              <FrameStage c={c} className="w-full h-full" markerColor={c.realInput ? '#ffd400' : INK} strokeW={6} />
+              <div className="absolute left-4 top-4 bg-white border-[3px] border-[#111] px-2 text-sm font-bold">YOU · {c.realInput ? c.inputLabel : 'fixture frame'}</div>
               {c.ticked && <div className="absolute right-6 top-6 rotate-[6deg] bg-[#1f9d55] text-white border-[4px] border-[#111] px-4 py-2 text-2xl font-black rw-pop" data-testid="manual-ticked">✓ Step {c.stepNum} ticked by Muse Wonder</div>}
               {phase === 'checking' && <div className="rw-scanline" style={{ background: 'linear-gradient(90deg,transparent,#111,transparent)', boxShadow: 'none' }} />}
               {s1 && holes.length === 0 && s1.hole_pattern_witness?.status === 'fail' &&
@@ -123,8 +124,10 @@ export function LookPaper() {
           </aside>
         </div>
 
-        <footer className="flex items-center gap-3 pt-3 text-sm">
-          {(c.cfg?.scenarios ?? []).map((s, i) => (
+        <footer className="flex flex-wrap items-center gap-3 pt-3 text-sm">
+          <SourceSwitch c={c} btn="border-[3px] border-[#111] px-3 py-1 font-bold bg-white" active="!bg-[#111] text-[#efe9dc]" />
+          <span className="w-px h-6 bg-[#111] mx-1" />
+          {c.source === 'fixture' && (c.cfg?.scenarios ?? []).map((s, i) => (
             <button key={s} onClick={() => c.setScenario(s)} className={`border-[3px] border-[#111] px-3 py-1 font-bold ${c.scenario === s ? 'bg-[#111] text-[#efe9dc]' : 'bg-white'}`}>{i + 1} · {SCENARIO_LABEL[s]}</button>
           ))}
           <select value={c.mode} onChange={(e) => c.setMode(e.target.value as any)} className="border-[3px] border-[#111] bg-white px-2 py-1 font-bold"><option value="fixture">Fixture</option><option value="live">Live</option></select>
@@ -132,6 +135,6 @@ export function LookPaper() {
         </footer>
         {c.err && <div className="text-[#d71920]">{c.err}</div>}
       </div>
-    </div>
+    </div></>
   );
 }

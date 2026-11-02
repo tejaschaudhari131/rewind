@@ -1,5 +1,6 @@
 import { useRewindCheck, FRAME, REFERENCE, SCENARIO_LABEL, fixHints, lanes, Phase } from './useRewindCheck';
-import { FrameSvg, FlipHint } from './Shared';
+import { FlipHint } from './Shared';
+import { FrameStage, SourceSwitch, ApiBanner } from './FrameInput';
 
 // Look B, full-bleed camera HUD: the camera feed is the UI. Kinetic verdict letters, AR hole markers, ghost of the correct orientation, session rewind scrubber.
 const WORD: Record<Phase, string> = { idle: 'READY', checking: 'LOOKING', stop: 'STOP', ok: 'OK', provisional: 'LOOKS RIGHT', unknown: "CAN'T TELL", error: 'ERROR' };
@@ -16,7 +17,8 @@ export function LookHud() {
   const word = WORD[phase];
   return (
     <div className="fixed inset-0 bg-black text-white overflow-hidden font-poster" data-look="hud" data-phase={phase}>
-      <FrameSvg src={FRAME[c.scenario]} holes={holes} ghost={phase === 'stop' ? REFERENCE : null} fit="slice" markerColor={col} className="absolute inset-0 w-full h-full" />
+      <ApiBanner c={c} />
+      <FrameStage c={c} ghost={phase === 'stop' ? REFERENCE : null} fit="slice" markerColor={col} dark className="absolute inset-0 w-full h-full" />
       <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at center, transparent 45%, ${phase === 'stop' ? 'rgba(255,45,85,.45)' : 'rgba(0,0,0,.7)'} 100%)` }} />
       {phase === 'stop' && <div className="absolute inset-0 border-[14px] rw-blink pointer-events-none" style={{ borderColor: col }} />}
       {phase === 'checking' && <div className="rw-scanline" />}
@@ -26,8 +28,8 @@ export function LookHud() {
       {/* top HUD bar */}
       <div className="absolute top-10 left-28 right-28 flex items-center gap-4 text-sm font-mono-tech">
         <span className="font-black text-xl tracking-tight">⏪ REWIND</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full rw-blink" style={{ background: DOT[phase] }} />{c.fixture ? 'FIXTURE FEED · not a live camera' : 'LIVE'}</span>
-        {c.cfg?.synthetic && <span className="bg-yellow-300 text-black px-2 font-bold">SYNTHETIC</span>}
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full rw-blink" style={{ background: DOT[phase] }} />{c.realInput ? c.inputLabel : c.fixture ? 'FIXTURE FEED · not a live camera' : 'LIVE · fixture frame'}</span>
+        {c.cfg?.synthetic && !c.realInput && <span className="bg-yellow-300 text-black px-2 font-bold">SYNTHETIC</span>}
         <span className="opacity-70">STEP {c.stepNum}/{c.total} · {c.step?.title}</span>
         {!rec && <a href="?look=v2" className="ml-auto underline opacity-60 pointer-events-auto">classic view</a>}
       </div>
@@ -38,7 +40,7 @@ export function LookHud() {
           {word.split('').map((ch, i) => <span key={i} className="rw-letter" style={{ animationDelay: `${i * 55}ms` }}>{ch === ' ' ? '\u00a0' : ch}</span>)}
         </div>
         {s1 && <div className="text-3xl font-bold mt-2 drop-shadow-lg">
-          {phase === 'stop' ? `${s1.hole_pattern_witness?.live_hole_count ?? 0} / ${s1.hole_pattern_witness?.reference_hole_count} holes visible · panel is flipped` : phase === 'provisional' ? 'Local checks pass · fixture mode, not model-confirmed' : phase === 'unknown' ? 'Not enough evidence · will not guess' : phase === 'ok' ? 'Both stages agree' : ''}
+          {phase === 'stop' ? `${s1.hole_pattern_witness?.live_hole_count ?? 0} / ${s1.hole_pattern_witness?.reference_hole_count} holes visible · panel is flipped` : phase === 'provisional' ? (c.fixture ? 'Local checks pass · fixture mode, not model-confirmed' : 'Local checks pass · model did not confirm, not ticked') : phase === 'unknown' ? 'Not enough evidence · will not guess' : phase === 'ok' ? 'Both stages agree' : ''}
         </div>}
         {phase === 'stop' && <div className="text-base mt-2 opacity-80 font-mono-tech">faint overlay = the manual's reference frame (how it should look)</div>}
       </div>
@@ -72,8 +74,9 @@ export function LookHud() {
             ))}
           </div>
         </div>
-        {!rec && <div className="flex gap-2">
-          {(c.cfg?.scenarios ?? []).map((s, i) => (
+        {!rec && <div className="flex gap-2 items-center flex-wrap max-w-[900px]">
+          <SourceSwitch c={c} compact={false} btn="px-3 py-2 rounded-lg text-sm font-bold bg-white/10" active="!bg-white text-black" />
+          {c.source === 'fixture' && (c.cfg?.scenarios ?? []).map((s, i) => (
             <button key={s} onClick={() => c.setScenario(s)} className={`px-3 py-2 rounded-lg text-sm font-bold ${c.scenario === s ? 'bg-white text-black' : 'bg-white/10'}`}>{i + 1} {SCENARIO_LABEL[s]}</button>
           ))}
           <select value={c.mode} onChange={(e) => c.setMode(e.target.value as any)} className="bg-white/10 rounded-lg px-2 text-sm"><option value="fixture">Fixture</option><option value="live">Live</option></select>

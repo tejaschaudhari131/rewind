@@ -1,11 +1,11 @@
 import { FRAME_W, FRAME_H } from './useRewindCheck';
 /** Camera frame + real hole markers in one SVG so markers stay aligned at any crop (slice = full-bleed). */
-export function FrameSvg({ src, holes, ghost, fit = 'meet', markerColor = '#34d399', className = '', strokeW = 4 }:
-  { src: string; holes?: number[][]; ghost?: string | null; fit?: 'meet' | 'slice'; markerColor?: string; className?: string; strokeW?: number }) {
+export function FrameSvg({ src, holes, ghost, fit = 'meet', markerColor = '#34d399', className = '', strokeW = 4, w = FRAME_W, h = FRAME_H }:
+  { src?: string | null; holes?: number[][]; ghost?: string | null; fit?: 'meet' | 'slice'; markerColor?: string; className?: string; strokeW?: number; w?: number; h?: number }) {
   return (
-    <svg viewBox={`0 0 ${FRAME_W} ${FRAME_H}`} preserveAspectRatio={`xMidYMid ${fit}`} className={className}>
-      <image href={src} width={FRAME_W} height={FRAME_H} />
-      {ghost && <image href={ghost} width={FRAME_W} height={FRAME_H} className="rw-ghost" style={{ mixBlendMode: 'screen' }} />}
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio={`xMidYMid ${fit}`} className={className}>
+      {src && <image href={src} width={w} height={h} />}
+      {ghost && <image href={ghost} width={w} height={h} preserveAspectRatio="xMidYMid slice" className="rw-ghost" style={{ mixBlendMode: 'screen' }} />}
       {(holes ?? []).map(([x, y, a], i) => {
         const r = Math.max(7, Math.sqrt(a / Math.PI) + 6);
         return <g key={i} className="rw-fadeup" style={{ animationDelay: `${i * 35}ms` }}>

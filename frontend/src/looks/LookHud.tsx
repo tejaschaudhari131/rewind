@@ -36,10 +36,10 @@ export function LookHud() {
 
       {/* kinetic verdict */}
       <div className="absolute left-0 right-0 top-[16%] text-center pointer-events-none" role="status" aria-live="assertive" data-testid="furniture-verdict">
-        <div key={word + c.history.length} className="font-black leading-none" style={{ fontSize: word.length > 6 ? 170 : 300, color: col, textShadow: '0 10px 60px rgba(0,0,0,.6)' }}>
+        <div key={word + c.history.length} className="font-black leading-none" style={{ fontSize: word.length > 6 ? 'min(170px, 17vh)' : 'min(300px, 27vh)', color: col, textShadow: '0 10px 60px rgba(0,0,0,.6)' }}>
           {word.split('').map((ch, i) => <span key={i} className="rw-letter" style={{ animationDelay: `${i * 55}ms` }}>{ch === ' ' ? '\u00a0' : ch}</span>)}
         </div>
-        {s1 && <div className="text-3xl font-bold mt-2 drop-shadow-lg">
+        {s1 && <div className="text-2xl 2xl:text-3xl font-bold mt-2 drop-shadow-lg mx-auto max-w-[min(1100px,calc(100vw-120px))]">
           {phase === 'stop' ? `${s1.hole_pattern_witness?.live_hole_count ?? 0} / ${s1.hole_pattern_witness?.reference_hole_count} holes visible · panel is flipped` : phase === 'provisional' ? (c.fixture ? 'Local checks pass · fixture mode, not model-confirmed' : 'Local checks pass · model did not confirm, not ticked') : phase === 'unknown' ? 'Not enough evidence · will not guess' : phase === 'ok' ? 'Both stages agree' : ''}
         </div>}
         {phase === 'stop' && <div className="text-base mt-2 opacity-80 font-mono-tech">faint overlay = the manual's reference frame (how it should look)</div>}
@@ -47,15 +47,15 @@ export function LookHud() {
 
       {/* fix card */}
       {hints.length > 0 && (
-        <div className="absolute right-12 top-[44%] bg-white text-black rounded-2xl p-4 w-[380px] shadow-2xl" data-testid="fix-hint">
+        <div className="absolute right-12 bottom-40 bg-white text-black rounded-2xl p-4 w-[360px] shadow-2xl" data-testid="fix-hint">
           <div className="text-xs font-black tracking-widest mb-1">FIX</div>
-          {hints.map((h) => <div key={h.kind} className="flex items-center gap-3"><FlipHint kind={h.kind} size={130} /><div className="text-xl font-bold leading-tight">{h.text}</div></div>)}
+          {hints.map((h) => <div key={h.kind} className="flex items-center gap-3"><FlipHint kind={h.kind} size={96} /><div className="text-xl font-bold leading-tight">{h.text}</div></div>)}
           <div className="text-[10px] opacity-60 mt-1">deterministic, from the failed check</div>
         </div>
       )}
 
       {/* model ticker */}
-      <div className="absolute left-12 top-[44%] space-y-1 font-mono-tech text-sm" data-testid="model-trace">
+      <div className="absolute left-12 bottom-40 space-y-1 font-mono-tech text-sm" data-testid="model-trace">
         {lanes(res).map((l) => (
           <div key={l.model} className="bg-black/60 backdrop-blur px-3 py-1 rounded flex gap-3 w-[340px]"><span className="font-bold w-36">{l.model}</span><span className={l.state === 'not_measured' ? 'opacity-50' : ''}>{l.value}</span></div>
         ))}

@@ -37,3 +37,11 @@
 
 ## After filming
 Send the raw clips (don't trim them) and the screen recordings. Note any take where the Meta API was down; count it as a failed run, and don't drop it.
+
+## How to film with REWIND on your phone
+
+1. **Serve it.** On a machine with normal internet access, run `scripts/serve_phone.sh`. It starts the server, opens a Cloudflare quick tunnel (HTTPS, which phone cameras need) and prints the `https://….trycloudflare.com` URL. The access token is in `.phone_token` (chmod 600, gitignored). Open `URL/?t=<token>` once; a cookie keeps you signed in for 7 days. Keep the computer running the Meta egress proxy (`127.0.0.1:8791`) online. If it drops, a red "Meta API unreachable" banner appears.
+2. **Pick the input.** Choose **Live camera** (back camera; the page shows LIVE CAMERA) or **Upload photo / video** (JPG/PNG/HEIC ≤ 8 MB, or an MP4/MOV you can scrub to a frame; the page shows UPLOADED PHOTO or UPLOADED VIDEO FRAME). For the clean filming view, open `URL/?t=<token>&look=b&record=1&source=camera`.
+3. **Check.** Frame the panel the way the manual's reference does, then tap **Check this step** (or press space on a laptop). There is also an optional, labelled "auto-check when still ~1s" mode. Frames are deleted after the check unless you tick **save to eval set**; saved frames go to `fixtures/real_footage/` with a timestamp (gitignored, never commit them).
+
+The laptop webcam works through the same URL, or through `http://localhost:8077` (browsers treat localhost as secure).

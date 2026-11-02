@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 import base64
 import json
 import mimetypes
+import os
 import time
 import uuid
 from pathlib import Path
@@ -1090,6 +1091,89 @@ async def furniture_verify(req: FurnitureVerifyRequest) -> Dict[str, Any]:
 @app.post("/api/furniture/manual/checkoff")
 async def furniture_manual_checkoff(step_number: int = 3, mode: Literal["fixture", "live"] = "fixture") -> Dict[str, Any]:
     return await run_checkoff(default_checkpoint_set(), step_number, mode=mode)
+
+
+from fastapi import File, Form, UploadFile  # noqa: E402
+from backend.app import frame_input  # noqa: E402
+
+
+@app.post("/api/furniture/checkpoint/verify_frame")
+async def furniture_verify_frame(file: UploadFile = File(...), step_id: Optional[str] = Form(None),
+                                 source: Literal["camera", "upload", "video_frame"] = Form("upload"),
+                                 mode: Literal["fixture", "live"] = Form("live"),
+                                 check_off_manual: bool = Form(False), save_to_eval: bool = Form(False)) -> Dict[str, Any]:
+    """Run the same two-stage furniture gate on a real frame (camera grab, photo, or video frame)."""
+    cs = default_checkpoint_set()
+    try:
+        cfg = cs.step(step_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    data = await file.read(frame_input.MAX_BYTES + 1)
+    try:
+        img = frame_input.decode_frame(data, file.content_type, file.filename or "")
+    except frame_input.FrameInputError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
+    tmp = frame_input.write_temp_png(img)
+    try:
+        out = await verify_furniture_checkpoint(tmp, cfg, mode=mode)
+    finally:
+        tmp.unlink(missing_ok=True)
+    out["synthetic_fixture"] = False
+    out["input_source"] = source
+    out["input_label"] = frame_input.SOURCE_LABELS[source]
+    out["frame_size"] = list(img.size)
+    manual = {"status": "not_updated", "label": NOT_UPDATED, "reason": "not_requested"}
+    if check_off_manual and out["decision"] == "accepted":
+        manual = await run_checkoff(cs, cfg.step_number, mode=mode)
+    elif check_off_manual:
+        manual["reason"] = "gate_not_accepted"
+    out["manual"] = manual
+    out["persisted"] = False
+    if save_to_eval:
+        out["saved_path"] = str(frame_input.save_to_eval(img, source, cfg.step_id).relative_to(frame_input.REPO_ROOT)) \
+            if frame_input.EVAL_DIR.is_relative_to(frame_input.REPO_ROOT) else str(frame_input.save_to_eval(img, source, cfg.step_id))
+        out["persisted"] = True
+    return out
+
+
+@app.get("/api/furniture/preflight")
+async def furniture_preflight() -> Dict[str, Any]:
+    """Is the Meta API reachable through the egress proxy right now? Any HTTP answer = reachable."""
+    from backend.app.config import settings as _s
+    import httpx as _httpx
+    t0 = time.perf_counter()
+    try:
+        async with _httpx.AsyncClient(proxy=_s.http_proxy, timeout=6.0) as c:
+            r = await c.get(_s.meta_api_base.rstrip("/") + "/models")
+        return {"meta_reachable": True, "http_status": r.status_code, "proxy": bool(_s.http_proxy),
+                "has_meta_key": bool(_s.meta_api_key), "has_baseten_key": bool(_s.baseten_api_key),
+                "latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
+    except Exception as exc:
+        return {"meta_reachable": False, "error": type(exc).__name__, "proxy": bool(_s.http_proxy),
+                "has_meta_key": bool(_s.meta_api_key), "has_baseten_key": bool(_s.baseten_api_key),
+                "hint": "Meta API unreachable: keep your computer online (egress proxy)"}
+
+
+# Optional access token (phone tunnel): when REWIND_ACCESS_TOKEN is set, every request needs ?t=<token> once
+# (then an HttpOnly cookie) or an X-Rewind-Token header. Unset (local dev/tests) = open.
+import hmac as _hmac  # noqa: E402
+from fastapi.responses import HTMLResponse as _HTML  # noqa: E402
+
+
+@app.middleware("http")
+async def _access_token_gate(request, call_next):
+    tok = os.getenv("REWIND_ACCESS_TOKEN", "")
+    if not tok:
+        return await call_next(request)
+    given = request.query_params.get("t") or request.headers.get("x-rewind-token") or request.cookies.get("rewind_t") or ""
+    if not _hmac.compare_digest(given.encode(), tok.encode()):
+        return _HTML("<html><body style='font-family:sans-serif;padding:40px;background:#efe9dc'><h1>REWIND</h1>"
+                     "<form method='get'><p>Access code:</p><input name='t' type='password' autofocus style='font-size:22px'>"
+                     "<button style='font-size:22px'>Enter</button></form></body></html>", status_code=401)
+    resp = await call_next(request)
+    if request.query_params.get("t"):
+        resp.set_cookie("rewind_t", tok, httponly=True, secure=True, samesite="lax", max_age=7 * 86400)
+    return resp
 
 
 if FRONTEND_DIST_DIR.exists():

@@ -26,3 +26,8 @@ frontend/*.tsbuildinfo
 Thumbs.db
 *.swp
 *.swo
+
+# Real footage saved via "save to eval set" (never committed by default)
+fixtures/real_footage/
+.phone_token
+.run/

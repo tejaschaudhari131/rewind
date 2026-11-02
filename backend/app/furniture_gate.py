@@ -24,6 +24,9 @@ from .two_stage import final_from_stage2
 
 logger = logging.getLogger("rewind.furniture_gate")
 STAGE2_DEADLINE_S = 20.0
+# Muse Spark Open reasons in <think> before the JSON verdict; 1536 truncated real runs. If it can't finish
+# inside STAGE2_DEADLINE_S the call times out and the decision stays unknown (never guessed).
+STAGE2_MAX_TOKENS = 4096
 
 
 def provisional_from_witnesses(iou: Optional[float], holes: Dict[str, Any], tape: Dict[str, Any],
@@ -108,7 +111,7 @@ async def run_stage2(frame_path: Path, cfg: CheckpointConfig, stage1: Dict[str, 
     else:
         if auditor is None:
             from .providers.baseten_vision import BasetenVisionAuditor
-            auditor = BasetenVisionAuditor(max_tokens=1536)
+            auditor = BasetenVisionAuditor(max_tokens=STAGE2_MAX_TOKENS)
         ctx = {"observation_id": stage1["observation_id"], "frame_id": "furniture-live"}
         try:
             res = await asyncio.wait_for(auditor.audit_checkpoint(current_image=live_png, reference_image=ref_png,

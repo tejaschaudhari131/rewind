@@ -14,10 +14,43 @@
       "reference_image": "fixtures/ikea/reference_step3.png",
       "audit_profile": "furniture_panel",
       "witness": {
-        "hole_pattern": {"min_reference_holes": 2, "pass_ratio": 0.6, "min_hole_area_px": 20, "max_hole_area_px": 2500},
-        "tape_edge": {"hsv_lo": [95, 120, 60], "hsv_hi": [130, 255, 255], "min_area_px": 300, "min_polarity_cosine": 0.5}
+        "hole_pattern": {
+          "min_reference_holes": 2,
+          "pass_ratio": 0.6,
+          "min_hole_area_px": 20,
+          "max_hole_area_px": 2500
+        },
+        "tape_edge": {
+          "hsv_lo": [
+            95,
+            120,
+            60
+          ],
+          "hsv_hi": [
+            130,
+            255,
+            255
+          ],
+          "min_area_px": 300,
+          "min_polarity_cosine": 0.5
+        }
       },
-      "panel_iou_min": 0.80
+      "panel_iou_min": 0.8
+    },
+    {
+      "step_id": "step-7-zinus-leg-f",
+      "step_number": 7,
+      "title": "Step 7: attach leg F with its bolt holes and the #7 label facing the frame",
+      "part_label": "Zinus leg F (real part)",
+      "sam_concept_prompt": "black metal bar",
+      "reference_image": "fixtures/real_footage/zinus/01M6MBBMTFTBF76HB16KEFFQHA.jpg",
+      "audit_profile": "metal_bracket",
+      "witness": {
+        "part_label": {
+          "min_label_area_px": 300,
+          "max_surround_mean_v": 140
+        }
+      }
     }
   ],
   "scenarios": {

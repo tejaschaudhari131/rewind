@@ -21,6 +21,7 @@ import cv2
 from .checkpoints import CheckpointConfig
 from .geometry import (check_hole_pattern_witness, check_tape_edge_witness, crop_panel_png, panel_mask_iou)
 from .two_stage import final_from_stage2
+from .bracket_witness import bracket_png, check_part_label_witness
 
 logger = logging.getLogger("rewind.furniture_gate")
 STAGE2_DEADLINE_S = 20.0
@@ -58,10 +59,19 @@ async def run_stage1(frame_path: Path, cfg: CheckpointConfig, *, mode: str = "fi
         return {"stage": 1, "provisional_verdict": "unknown", "provisional_reason_codes": ["frame_unreadable"],
                 "stage1_elapsed_ms": round((time.perf_counter() - t0) * 1000, 1)}
     w = cfg.witness
-    holes = check_hole_pattern_witness(ref, live, w.get("hole_pattern"))
-    tape = check_tape_edge_witness(ref, live, w.get("tape_edge"))
-    iou = panel_mask_iou(ref, live)
-    provisional, reasons = provisional_from_witnesses(iou, holes, tape, cfg.panel_iou_min)
+    if cfg.audit_profile == "metal_bracket":
+        # Real part: one face-label witness; no silhouette IoU / tape witness for this step (reported as n/a).
+        holes = check_part_label_witness(live, w.get("part_label"))
+        tape = {"check": "tape_edge_polarity", "producer": "DETERMINISTIC_LOCAL", "measured": False,
+                "status": "not_applicable", "reason": "no_tape_edge_on_this_part"}
+        iou = None
+        provisional = {"pass": "provisional_accepted", "fail": "provisional_rejected"}.get(holes["status"], "unknown")
+        reasons = [] if holes["status"] == "pass" else [holes["reason"]]
+    else:
+        holes = check_hole_pattern_witness(ref, live, w.get("hole_pattern"))
+        tape = check_tape_edge_witness(ref, live, w.get("tape_edge"))
+        iou = panel_mask_iou(ref, live)
+        provisional, reasons = provisional_from_witnesses(iou, holes, tape, cfg.panel_iou_min)
     sam_info: Dict[str, Any] = {"called": False, "measured": False, "concept_prompt": cfg.sam_concept_prompt}
     if mode == "live":
         if sam_client is None:
@@ -102,8 +112,9 @@ async def run_stage2(frame_path: Path, cfg: CheckpointConfig, stage1: Dict[str, 
                 if provisional != "provisional_rejected" else "rejected",
                 "resolution": "stage2_not_run_fixture", "model_finding": None, "measured": False,
                 "note": "Fixture mode: no model call; a provisional pass is never confirmed."}
-    ref_png = crop_panel_png(cv2.imread(str(cfg.reference_image)))
-    live_png = crop_panel_png(cv2.imread(str(frame_path)))
+    crop = bracket_png if cfg.audit_profile == "metal_bracket" else crop_panel_png
+    ref_png = crop(cv2.imread(str(cfg.reference_image)))
+    live_png = crop(cv2.imread(str(frame_path)))
     t0 = time.perf_counter()
     finding, error, usage, latency = None, None, {}, None
     if ref_png is None or live_png is None:

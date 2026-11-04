@@ -78,7 +78,7 @@ export function useRewindCheck() {
     ping(); const t = setInterval(ping, 30000); return () => { stop = true; clearInterval(t); };
   }, [needsApi]);
   useEffect(() => { fetch('/api/furniture/config').then((r) => r.json()).then(setCfg).catch((e) => setErr(String(e))); }, []);
-  const step = cfg?.steps[0];
+  const step = cfg?.steps.find((s: { step_id: string }) => s.step_id === q.get('step')) ?? cfg?.steps[0];
   const total = cfg?.total_steps ?? 8;
   const stepNum = Number((step?.step_id ?? 'step-3').split('-')[1]) || 3;
   const setScenario = (s: string) => { runId.current++; setScenarioRaw(s); setRes(null); setPhase('idle'); };

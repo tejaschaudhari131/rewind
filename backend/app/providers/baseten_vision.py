@@ -43,7 +43,20 @@ FURNITURE_AUDIT_PROMPT = (
     "\"holes_visible_live\": bool|null, \"same_orientation\": bool|null, \"confidence\": 0..1, \"statement\": str}"
 )
 
-AUDIT_PROMPTS = {"slider_crank": AUDIT_PROMPT, "furniture_panel": FURNITURE_AUDIT_PROMPT}
+# Real-part profile (black metal bracket). Neutral: describes what to compare, not the expected answer.
+BRACKET_AUDIT_PROMPT = (
+    "You are a blinded visual QA auditor for a bed-frame assembly step. "
+    "Image 1 is a REFERENCE photo of a black metal bracket lying with the face that must point up/out before bolting; "
+    "image 2 is a LIVE photo of a bracket. On the reference face you can see features such as a bolt hole, a threaded "
+    "insert near one end and a small colored part-number sticker. Decide whether the LIVE bracket shows the same face "
+    "(those features visible) or the opposite, featureless face. Ignore lighting, position, rotation and background. "
+    "If the images do not let you tell, say insufficient_evidence. "
+    "Return ONLY JSON: {\"finding\": \"consistent\"|\"mismatch\"|\"insufficient_evidence\", "
+    "\"features_visible_live\": bool|null, \"confidence\": 0..1, \"statement\": str}"
+)
+
+AUDIT_PROMPTS = {"slider_crank": AUDIT_PROMPT, "furniture_panel": FURNITURE_AUDIT_PROMPT,
+                 "metal_bracket": BRACKET_AUDIT_PROMPT}
 
 
 def _to_data_url(src: bytes | Path | str) -> str:
@@ -109,7 +122,7 @@ class BasetenVisionAuditor:
             "observations": [{"frame_id": frame_id, "region_xyxy_px": [0, 0, 1, 1],
                               "statement": str(parsed.get("statement", ""))[:500] or finding}],
             "contradicted_predicate_ids": (
-                [("panel-face-orientation" if audit_profile == "furniture_panel" else "witness-stripe-aligned")]
+                [("panel-face-orientation" if audit_profile in ("furniture_panel", "metal_bracket") else "witness-stripe-aligned")]
                 if finding == "mismatch" else []),
             "requires_new_view": finding == "insufficient_evidence",
         }
